@@ -8,4 +8,5 @@
     version: "{{ item.version | default(omit) }}"
     executable: "{{ executable }}"
     state: "{{ state }}"
-  loop: " {{ pip_modules }}"
+  loop: 
+    - "{{ pip_modules }}"
