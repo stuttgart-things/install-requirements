@@ -1,2 +1,4 @@
 ---
 # tasks file for install-requirements
+- include_tasks: pip.yaml
+  when: pip_modules is defined
