@@ -5,7 +5,8 @@
 #-> ls /usr/bin/pip{{python interpreter_version}}
 #-> if not: install pip in desired version
 
-
+# https://www.linder.org/2019/10/03/ansible-and-third-party-python-modules/
+# https://github.com/bobbyrenwick/ansible-pip/blob/master/tasks/main.yml
 
 - include_tasks: pip.yaml
   when: pip_modules is defined
