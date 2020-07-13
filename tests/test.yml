@@ -2,9 +2,11 @@
 - hosts: localhost
   vars:
     pip_modules:
-      - name: kubernetes
+      kubernetes:
+        name: kubernetes
         version: 10.0.1
-      - name: openshift
+      openshift:
+        name: openshift
   # tasks:
   #   - pip:
   #       name: "{{ item.name }}"
