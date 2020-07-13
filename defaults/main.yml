@@ -1,0 +1,4 @@
+---
+# defaults file for install-requirements
+executable: pip2
+state: present

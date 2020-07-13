@@ -1,0 +1,11 @@
+
+#-> get ansible python interpreter
+#-> ls /usr/bin/pip{{python interpreter_version}}
+#-> if not: install pip in desired version
+
+- pip:
+    name: "{{ item.name }}"
+    version: "{{ item.version | default(omit) }}"
+    executable: "{{ executable }}"
+    state: "{{ state }}"
+  loop: " {{ pip_modules }}"
