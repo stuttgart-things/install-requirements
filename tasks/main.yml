@@ -1,4 +1,12 @@
 ---
 # tasks file for install-requirements
+
+#-> get ansible python interpreter
+#-> ls /usr/bin/pip{{python interpreter_version}}
+#-> if not: install pip in desired version
+
+
+
 - include_tasks: pip.yaml
   when: pip_modules is defined
+

@@ -2,20 +2,9 @@
 - hosts: localhost
   vars:
     pip_modules:
-      kubernetes:
-        name: kubernetes
+      - name: kubernetes
         version: 10.0.1
-      openshift:
-        name: openshift
-  # tasks:
-  #   - pip:
-  #       name: "{{ item.name }}"
-  #       version: "{{ item.version | default(omit) }}"
-  #       executable: pip3
-  #     loop:
-  #       - name: kubernetes
-  #         version: 10.0.1
-  #       - name: openshift 
+      - name: openshift
   
   roles:
    - install-requirements
