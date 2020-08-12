@@ -1,0 +1,7 @@
+---
+- name: Install requiered repo
+  package: 
+    name: "{{ requiered_repo }}"
+    state: present
+  when: ansible_distribution == "CentOS"
+  tags: install

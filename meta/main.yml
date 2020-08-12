@@ -1,5 +1,5 @@
 galaxy_info:
-  author: Patrick Hermann 
+  author: Patrick Hermann & Marcel Zapf
   description: role to install requirements to make the execution of ansible roles work
   company: SVA Gmbh
 
