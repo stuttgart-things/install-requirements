@@ -1,6 +1,8 @@
 ---
 - hosts: localhost
   vars:
+    os_packages:
+      - name: htop
     pip_modules:
       - name: kubernetes
         version: 10.0.1

@@ -1,0 +1,6 @@
+---
+- name: "Install os package: {{ item.name }}"
+  package: 
+    name: "{{ item.name }}"
+    state: present
+  loop: "{{ os_packages }}"
