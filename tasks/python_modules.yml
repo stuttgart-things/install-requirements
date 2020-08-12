@@ -13,3 +13,4 @@
     state: "{{ state }}"
   loop: "{{ python_modules }}"
   tags: install
+  when: python_modules is defined

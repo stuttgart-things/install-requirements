@@ -1,5 +1,5 @@
 ---
-- name: Install requiered repo
+- name: Install requiered repo for "{{ ansible_distribution }}"
   package: 
     name: "{{ requiered_repo }}"
     state: present
