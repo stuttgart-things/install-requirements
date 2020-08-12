@@ -1,36 +1,5 @@
 ---
-# tasks file for install-requirements
+- include_tasks: epel.yml
+  when: ansible_distribution == "CentOS"
 
-# -> inlcude base-os role magic as task file: for our operating systems add tasks to automatic install requirements like epel 
-
----
-- name: Install epel-release for CentOS7
-  package: 
-    name: epel-release
-    state: present
-  when: ansible_distribution == "CentOS" and ansible_distribution_major_version == "7"
-  tags: install
-
-- name: Install epel-release for CentOS8
-  dnf: 
-    name: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm"
-    state: present
-  when: ansible_distribution == "CentOS" and ansible_distribution_major_version == "8"
-  tags: install
-
-
-
-# -> role should take os_packages (redhat and debian vars)and python_modules as arugements (string list)
-
-
-#-> get ansible python interpreter
-#-> ls /usr/bin/pip{{python interpreter_version}}
-#-> if not: install pip in desired version like pip2 or 3
-#-> consider local action
-
-# https://www.linder.org/2019/10/03/ansible-and-third-party-python-modules/
-# https://github.com/bobbyrenwick/ansible-pip/blob/master/tasks/main.yml
-
-- include_tasks: pip.yaml
-  when: pip_modules is defined
-
+- include_tasks: pip.yml

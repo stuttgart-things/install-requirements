@@ -1,6 +1,0 @@
-- pip:
-    name: "{{ item.name }}"
-    version: "{{ item.version | default(omit) }}"
-    executable: "{{ executable }}"
-    state: "{{ state }}"
-  loop: "{{ pip_modules }}"
