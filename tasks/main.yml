@@ -3,5 +3,7 @@
   when: ansible_distribution == "CentOS"
 
 - include_tasks: os_packages.yml
+  when: os_packages is defined
 
 - include_tasks: python_modules.yml
+  when: python_modules is defined
