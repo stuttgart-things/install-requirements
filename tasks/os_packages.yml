@@ -16,6 +16,6 @@
   package: 
     name: "{{ item.name }}"
     state: present
-  loop: "{{ os_packages }}"
+  loop: "{{ os_packages('dict', single_key_dict, wantlist=True) }}"
   tags: install
   when: os_packages is defined
