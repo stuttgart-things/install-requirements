@@ -14,7 +14,7 @@
 
 - name: "install os package"
   package: 
-    name: "{{ lookup('item.name', wantlist=True) }}"
+    name: "{{ lookup('item.name', single_key_dict, wantlist=True) }}"
     state: present
   loop: "{{ os_packages }}"
   tags: install
