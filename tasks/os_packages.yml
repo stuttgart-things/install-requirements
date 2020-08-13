@@ -14,7 +14,8 @@
 
 - name: "install os package"
   package: 
-    name: "{{ os_packages }}"
+    name: "{{ item }}"
     state: present
+  with_items: "{{ os_packages }}"
   tags: install
   when: os_packages is defined
