@@ -14,8 +14,7 @@
 
 - name: "install os package"
   package: 
-    name: "{{ item.name }}"
+    name: "{{ os_packages }}"
     state: present
-  loop: "{{ lookup('dict', os_packages, wantlist=True) }}"
   tags: install
-  when: os_packages is defined 
+  when: os_packages is defined
