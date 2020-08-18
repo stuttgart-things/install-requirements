@@ -73,7 +73,6 @@ vars:
     
 ```
 </details>
-<br/>
 
 ## Version:
 ```
