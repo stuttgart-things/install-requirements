@@ -24,6 +24,8 @@ rm -rf /tmp/requirements.yaml
 Example Playbook
 ----------------
 
+This playbook install the htop os package and the python module kubernetes with the version 10.0.1 and the latest openshift python module.
+
 <details><summary>Example</summary>
 <br/>
 Playbook: install-requirements.yml
@@ -45,18 +47,19 @@ Playbook: install-requirements.yml
   roles:
    - install-requirements
 ```
-This playbook install the htop os package and the python module kubernetes with the version 10.0.1 and the latest openshift python module.
 
 Playbook execution:
 ```
 ansible-playbook -i inventory install-reqierements.yml
 ```
-</details>
 
 Role Variables
 --------------
 
 The following vars can be set:
+
+<details><summary>vars-examples</summary>
+<br/>
 ```
 vars:
   update_packages: true     # set for update or not update your os packages (update_packages: true/ false)
@@ -68,7 +71,7 @@ vars:
     - name: openshift       #   version: <package_version>
     
 ```
-
+</details>
 <br/>
 
 ## Version:
