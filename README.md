@@ -12,9 +12,8 @@ installs role and all of it's dependencies w/:
 
 ```
 cat <<EOF > /tmp/requirements.yaml
-- src: git@codehub.sva.de:Lab/stuttgart-things/virtual-machines/create-packer-vmtemplate.git
+- src: git@codehub.sva.de:Lab/stuttgart-things/supporting-roles/install-requirements.git
   scm: git
-
 EOF
 ansible-galaxy install -r /tmp/requirements.yaml --force
 rm -rf /tmp/requirements.yaml
