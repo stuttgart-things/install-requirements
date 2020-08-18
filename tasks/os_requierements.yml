@@ -1,7 +1,7 @@
 ---
-- name: install requiered repo for "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+- name: install required repo for "{{ ansible_distribution }} {{ ansible_distribution_version }}"
   package: 
-    name: "{{ requiered_repo }}"
+    name: "{{ required_repo }}"
     state: present
   when: ansible_distribution == "CentOS"
   tags: install
