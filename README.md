@@ -52,7 +52,6 @@ Playbook execution:
 ansible-playbook -i inventory install-reqierements.yml
 ```
 </details>
-<br/>
 
 Role Variables
 --------------
@@ -61,6 +60,7 @@ The following vars can be set:
 
 <details><summary>vars-examples</summary>
 <br/>
+
 ```
 vars:
   update_packages: true     # set for update or not update your os packages (update_packages: true/ false)
