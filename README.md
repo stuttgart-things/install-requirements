@@ -6,9 +6,10 @@ This Ansible role can install, remove and update python and os packages.
 Requirements
 ------------
 
+installs role and all of it's dependencies w/:
+
 <details><summary>Install role</summary>
 
-installs this role and all it's dependencies w/:
 ```
 cat <<EOF > /tmp/requirements.yaml
 - src: git@codehub.sva.de:Lab/stuttgart-things/virtual-machines/create-packer-vmtemplate.git
