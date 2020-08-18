@@ -1,31 +1,76 @@
-Role Name
+Ansible Role: install-requirements
 =========
 
-A brief description of the role goes here.
+This Ansible role can install, remove and update python and os packages.
 
 Requirements
 ------------
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+<details><summary>Install role</summary>
+
+installs this role and all it's dependencies w/:
+```
+cat <<EOF > /tmp/requirements.yaml
+- src: git@codehub.sva.de:Lab/stuttgart-things/virtual-machines/create-packer-vmtemplate.git
+  scm: git
+
+EOF
+ansible-galaxy install -r /tmp/requirements.yaml --force
+rm -rf /tmp/requirements.yaml
+```
+</details>
+<br/>
 
 Role Variables
 --------------
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
-
-Dependencies
-------------
-
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
+This role use ansible variables. 
+```
+update_packages: true/ false
+```
+Set for update or not update your os packages.
+```
+- os_packages: <package_name>
+```
+The os package that you want to install. If not set, no os package will be installed
+```
+- python_modules: <package_name>
+  version: <package_version>
+```
+The pip package that you want to install. If not set, no os package will be installed. If pip doesn't exist, it will be installed automatically. The pip version is decided based on the python version that is used by ansible on the target host.
 
 Example Playbook
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
+<details><summary>Example</summary>
+<br/>
+Playbook: ./tests/test.yml
 
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
+```
+---
+- hosts: localhost
+  gather_facts: true
+  become: true
+  vars:
+    update_packages: true
+    os_packages:
+      - name: htop
+    python_modules:
+      - name: kubernetes
+#        version: 10.0.1
+      - name: openshift
+  
+  roles:
+   - install-requirements
+```
+
+
+Playbook execution:
+```
+ansible-playbook -i inventory install-reqierements
+```
+</details>
+<br/>
 
 License
 -------
@@ -35,4 +80,4 @@ BSD
 Author Information
 ------------------
 
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
+Marcel Zapf (marcel.zapf@sva.de; SVA GmbH; 08/2020)
