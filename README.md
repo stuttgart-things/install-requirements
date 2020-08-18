@@ -44,7 +44,7 @@ Example Playbook
 
 <details><summary>Example</summary>
 <br/>
-Playbook: ./tests/test.yml
+Playbook: install-reqierements.yml
 
 ```
 ---
@@ -57,17 +57,17 @@ Playbook: ./tests/test.yml
       - name: htop
     python_modules:
       - name: kubernetes
-#        version: 10.0.1
+        version: 10.0.1
       - name: openshift
   
   roles:
    - install-requirements
 ```
-
+This playbook install the htop os package and the python module kubernetes with the version 10.0.1 and the latest openshift python module.
 
 Playbook execution:
 ```
-ansible-playbook -i inventory install-reqierements
+ansible-playbook -i inventory install-reqierements.yml
 ```
 </details>
 <br/>
