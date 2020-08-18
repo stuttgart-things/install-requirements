@@ -72,6 +72,12 @@ ansible-playbook -i inventory install-reqierements.yml
 </details>
 <br/>
 
+## Version:
+```
+DATE         WHO       		  WHAT
+20200818     Marcel Zapf  	  Better Readme
+```
+
 License
 -------
 
