@@ -21,24 +21,6 @@ rm -rf /tmp/requirements.yaml
 ```
 </details>
 
-Role Variables
---------------
-
-This role use ansible variables. 
-```
-update_packages: true/ false
-```
-Set for update or not update your os packages.
-```
-- os_packages: <package_name>
-```
-The os package that you want to install. If not set, no os package will be installed
-```
-- python_modules: <package_name>
-  version: <package_version>
-```
-The pip package that you want to install. If not set, no os package will be installed. If pip doesn't exist, it will be installed automatically. The pip version is decided based on the python version that is used by ansible on the target host.
-
 Example Playbook
 ----------------
 
@@ -70,6 +52,26 @@ Playbook execution:
 ansible-playbook -i inventory install-reqierements.yml
 ```
 </details>
+
+Role Variables
+--------------
+
+This role use ansible variables. 
+```
+update_packages: true/ false
+```
+Set for update or not update your os packages.
+```
+- os_packages: <package_name>
+```
+The os package that you want to install. If not set, no os package will be installed
+```
+- python_modules: <package_name>
+  version: <package_version>
+```
+The pip package that you want to install. If not set, no os package will be installed. If pip doesn't exist, it will be installed automatically. The pip version is decided based on the python version that is used by ansible on the target host.
+
+
 <br/>
 
 ## Version:
