@@ -19,8 +19,6 @@ EOF
 ansible-galaxy install -r /tmp/requirements.yaml --force
 rm -rf /tmp/requirements.yaml
 ```
-</details>
-<br/>
 
 Role Variables
 --------------
