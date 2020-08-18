@@ -58,19 +58,16 @@ Role Variables
 
 This role use ansible variables. 
 ```
-update_packages: true/ false
+vars:
+  update_packages: true     # set for update or not update your os packages (update_packages: true/ false)
+  os_packages:
+    - name: htop            # the os package that you want to install. If not set, no os package will be installed. (os_packages: <package_name>)
+  python_modules:
+    - name: kubernetes      # the pip package that you want to install. If not set, no os package will be installed. If pip doesn't exist, it will be installed automatically. The pip version is decided based on the python version that is used by ansible on the target host.
+      version: 10.0.1       # - python_modules: <package_name>
+    - name: openshift       #   version: <package_version>
+    
 ```
-Set for update or not update your os packages.
-```
-- os_packages: <package_name>
-```
-The os package that you want to install. If not set, no os package will be installed
-```
-- python_modules: <package_name>
-  version: <package_version>
-```
-The pip package that you want to install. If not set, no os package will be installed. If pip doesn't exist, it will be installed automatically. The pip version is decided based on the python version that is used by ansible on the target host.
-
 
 <br/>
 
