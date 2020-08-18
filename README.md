@@ -52,6 +52,8 @@ Playbook execution:
 ```
 ansible-playbook -i inventory install-reqierements.yml
 ```
+</details>
+<br/>
 
 Role Variables
 --------------
