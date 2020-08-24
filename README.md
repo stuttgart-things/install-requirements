@@ -37,7 +37,7 @@ Playbook: install-requirements.yml
   vars:
     update_packages: true
     os_packages:
-      - name: htop
+      - htop
     python_modules:
       - name: kubernetes
         version: 10.0.1
