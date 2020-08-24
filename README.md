@@ -74,14 +74,12 @@ vars:
 ```
 </details>
 
-## Version:
-```
-DATE         WHO       		  WHAT
-20200818     Marcel Zapf  	  Better Readme
-===============================================
-DATE         WHO       		  WHAT
-20200824     Patrick Hermann  Fixed task names, fixed os task loop
-```
+## Role Version:
+| date  | who | changelog |
+|---|---|---|
+|2020-08-18   | Marcel Zapf   | initial commit, added tests and readme
+|2020-08-24   | Patrick Hermann  | fixed task names, fixed os task loop
+
 
 License
 -------
