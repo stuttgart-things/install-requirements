@@ -12,10 +12,9 @@
     upgrade: dist
   when: update_packages | bool and ansible_distribution == 'Debian'
 
-- name: "install os package"
+- name: install os packages
   package: 
-    name: "{{ item }}"
+    name: "{{ os_packages }}"
     state: present
-  with_items: "{{ os_packages }}"
   tags: install
   when: os_packages is defined
