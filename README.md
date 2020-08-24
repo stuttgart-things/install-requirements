@@ -1,5 +1,5 @@
-Ansible Role: install-requirements
-=========
+install-requirements
+====================
 
 install, remove and update python and/or os packages.
 
