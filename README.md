@@ -78,6 +78,9 @@ vars:
 ```
 DATE         WHO       		  WHAT
 20200818     Marcel Zapf  	  Better Readme
+===============================================
+DATE         WHO       		  WHAT
+20200824     Patrick Hermann  Fixed task names, fixed os task loop
 ```
 
 License
