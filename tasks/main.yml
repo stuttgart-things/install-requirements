@@ -1,9 +1,9 @@
 ---
-- include_tasks: os_requierements.yml
+- include_tasks: os-requirements.yaml
   when: ansible_distribution == "CentOS"
 
-- include_tasks: os_packages.yml
+- include_tasks: os-packages.yaml
   when: os_packages is defined
 
-- include_tasks: python_modules.yml
+- include_tasks: python-modules.yaml
   when: python_modules is defined
