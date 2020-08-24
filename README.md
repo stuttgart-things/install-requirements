@@ -1,7 +1,7 @@
 Ansible Role: install-requirements
 =========
 
-This Ansible role can install, remove and update python and os packages.
+install, remove and update python and/or os packages.
 
 Requirements
 ------------
