@@ -8,7 +8,7 @@
         (ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_major_version == "8") or
         (ansible_distribution == 'Debian') or
         (ansible_distribution == 'Ubuntu')
-
+        
 - include_tasks: python-modules.yaml
   when: (python_modules is defined) and
         (ansible_distribution == "CentOS" and ansible_distribution_major_version == "8") or
