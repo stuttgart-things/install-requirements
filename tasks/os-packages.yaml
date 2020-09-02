@@ -4,7 +4,7 @@
     name: '*'
     state: latest
   tags: update
-  when: update_packages | bool
+  when: update_packages | bool and yum_fix | bool == 'false'
 
 - name: update apt-get repo and cache
   tags: update
@@ -17,4 +17,20 @@
     name: "{{ os_packages }}"
     state: present
   tags: install
-  when: os_packages is defined
+  when: os_packages is defined and yum_fix | bool == 'false'
+
+# CentOS7 and RHEL 7 fix
+
+- name: update all packages
+  yum:
+    name: '*'
+    state: latest
+  tags: update
+  when: update_packages | bool and yum_fix | bool
+
+- name: install os packages
+  yum: 
+    name: "{{ os_packages }}"
+    state: present
+  tags: install
+  when: os_packages is defined and yum_fix | bool
