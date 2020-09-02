@@ -3,5 +3,4 @@
   package: 
     name: "{{ required_repo }}"
     state: present
-  when: ansible_distribution == "CentOS"
   tags: install
