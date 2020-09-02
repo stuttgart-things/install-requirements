@@ -1,7 +1,4 @@
 ---
-- debug:
-    msg: "System {{ python_version }}"
-    
 - name: install required repo for "{{ ansible_distribution }} {{ ansible_distribution_version }}"
   package: 
     name: "{{ required_repo }}"
