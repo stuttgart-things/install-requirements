@@ -8,7 +8,7 @@
 
 # CentOS7 and RHEL 7 fix
 
-- name: install required repo for "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+- name: legacy - install required repo for "{{ ansible_distribution }} {{ ansible_distribution_version }}"
   yum: 
     name: "{{ required_repo }}"
     state: present

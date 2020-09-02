@@ -7,7 +7,7 @@
   tags: install
 
 # CentOS7 and RHEL 7 fix
-- name: make sure pip is installed
+- name: legacy - make sure pip is installed
   yum:
     name: "{{ python_pip_name }}"
     state: present

@@ -21,14 +21,14 @@
 
 # CentOS7 and RHEL 7 fix
 
-- name: update all packages
+- name: legacy - update all packages
   yum:
     name: '*'
     state: latest
   tags: update
   when: update_packages | bool and yum_fix | bool
 
-- name: install os packages
+- name: legacy - install os packages
   yum: 
     name: "{{ os_packages }}"
     state: present
