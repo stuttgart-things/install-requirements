@@ -4,7 +4,8 @@
     name: "{{ required_repo }}"
     state: present
   tags: install
-
+  when: python_version == 2
+  
 - name: install the latest version of Apache
   dnf:
     name: "{{ required_repo }}"
