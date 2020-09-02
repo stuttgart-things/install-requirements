@@ -1,9 +1,31 @@
 ---
 - include_tasks: os-requirements.yaml
-  when: ansible_distribution == "CentOS"
+  when: ansible_distribution == "CentOS" and ansible_distribution_major_version == "8"
 
 - include_tasks: os-packages.yaml
-  when: os_packages is defined
-
+  when: (os_packages is defined) and
+        (ansible_distribution == "CentOS" and ansible_distribution_major_version == "8") or
+        (ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_major_version == "8") or
+        (ansible_distribution == 'Debian') or
+        (ansible_distribution == 'Ubuntu')
+        
 - include_tasks: python-modules.yaml
-  when: python_modules is defined
+  when: (python_modules is defined) and
+        (ansible_distribution == "CentOS" and ansible_distribution_major_version == "8") or
+        (ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_major_version == "8") or
+        (ansible_distribution == 'Debian') or
+        (ansible_distribution == 'Ubuntu')
+
+- include_tasks: rhel7-os-requirements.yaml
+  when: (ansible_distribution == "CentOS" and ansible_distribution_major_version == "7") or 
+        (ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_major_version == "7")
+
+- include_tasks: rhel7-os-packages.yaml
+  when: (os_packages is defined) and 
+        (ansible_distribution == "CentOS" and ansible_distribution_major_version == "7") or 
+        (ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_major_version == "7")
+
+- include_tasks: rhel7-python-modules.yaml
+  when: (python_modules is defined) and 
+        (ansible_distribution == "CentOS" and ansible_distribution_major_version == "7") or 
+        (ansible_distribution == 'Red Hat Enterprise Linux' and ansible_distribution_major_version == "7")
