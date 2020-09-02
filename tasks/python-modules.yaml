@@ -8,7 +8,7 @@
 
 # CentOS7 and RHEL 7 fix
 - name: make sure pip is installed
-  package:
+  yum:
     name: "{{ python_pip_name }}"
     state: present
   when: yum_fix | bool
