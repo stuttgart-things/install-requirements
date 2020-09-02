@@ -1,6 +1,6 @@
 ---
 - include_tasks: os-requirements.yaml
-  when: ansible_distribution == "CentOS"
+  when: ansible_distribution == "CentOS" or ansible_distribution == "RedHat"
 
 - include_tasks: os-packages.yaml
   when: os_packages is defined
