@@ -27,6 +27,8 @@
   when: update_packages | bool and yum_fix | bool
 
 - name: legacy - install os packages
-  shell: "yum -y install {{ os_packages }}"
+  shell: "yum -y install {{ item }}"
+  with_items:
+    - "{{ os_packages }"
   tags: install
   when: os_packages is defined and yum_fix | bool
