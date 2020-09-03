@@ -3,7 +3,7 @@
   package:
     name: "{{ python_pip_name }}"
     state: present
-  when: yum_fix | bool == 'false'
+  when: yum_fix | bool == false
   tags: install
 
 # CentOS7 and RHEL 7 fix
