@@ -29,6 +29,6 @@
 - name: legacy - install os packages
   shell: "yum -y install {{ item }}"
   with_items:
-    - "{{ os_packages }"
+    - "{{ os_packages }}"
   tags: install
   when: os_packages is defined and yum_fix | bool
