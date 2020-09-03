@@ -8,7 +8,7 @@
 
 # CentOS7 and RHEL 7 fix
 - name: legacy - make sure pip is installed
-  shell: "yum -y install python_pip_name"
+  shell: "yum -y install {{ python_pip_name }}"
   when: yum_fix | bool
   tags: install
 
