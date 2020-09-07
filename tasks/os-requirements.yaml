@@ -3,7 +3,7 @@
   package: 
     name: "{{ required_repo }}"
     state: present
-  when: ansible_distribution == "CentOS" and yum_fix | bool == false
+  when: ansible_distribution == "CentOS" and not yum_fix 
   tags: install
 
 # CentOS7 and RHEL 7 fix
@@ -12,5 +12,5 @@
   yum: 
     name: "{{ required_repo }}"
     state: present
-  when: ansible_distribution == "CentOS" and yum_fix | bool
+  when: ansible_distribution == "CentOS" and yum_fix|bool
   tags: install
