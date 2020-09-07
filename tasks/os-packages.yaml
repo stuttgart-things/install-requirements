@@ -4,7 +4,7 @@
     name: '*'
     state: latest
   tags: update
-  when: update_packages | bool and not yum_fix 
+  when: update_packages|bool and not yum_fix 
 
 - name: update apt-get repo and cache
   tags: update
