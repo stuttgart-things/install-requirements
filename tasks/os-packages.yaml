@@ -10,7 +10,7 @@
   tags: update
   apt:
     upgrade: dist
-  when: update_packages | bool and ansible_distribution == 'Debian'
+  when: update_packages|bool and ansible_distribution == 'Debian'
 
 - name: install os packages
   package: 
