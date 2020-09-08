@@ -6,8 +6,7 @@
   tags: update
   when: 
     - update_packages|bool
-    - ansible_distribution == 'CentOS' and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu'
-    - ansible_distribution == 'RedHat' and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and (ansible_distribution_major_version == '8') or ansible_distribution == 'Ubuntu'
 
 - name: update apt-get repo and cache
   tags: update
@@ -31,8 +30,7 @@
   tags: update
   when: 
     - update_packages|bool
-    - ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
-    - ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and (ansible_distribution_major_version == '7')
 
 - name: legacy - install os packages
   shell: "yum -y install {{ item }}"
@@ -41,5 +39,4 @@
   tags: install
   when: 
     - os_packages is defined
-    - ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7'
-    - ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and (ansible_distribution_major_version == '7')
