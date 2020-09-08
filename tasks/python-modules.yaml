@@ -4,7 +4,7 @@
     name: "{{ python_pip_name }}"
     state: present
   when:
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and (ansible_distribution_major_version == '8') or ansible_distribution == 'Ubuntu')
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and (ansible_distribution_major_version == '8') or (ansible_distribution == 'Ubuntu')
   tags: install
 
 # CentOS7 and RHEL 7 fix
