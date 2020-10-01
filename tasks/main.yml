@@ -9,4 +9,4 @@
   when: os_packages is defined
 
 - include_tasks: python-modules.yaml
-  when: "{{ python_modules }}" is defined
+  when: python_modules is defined
