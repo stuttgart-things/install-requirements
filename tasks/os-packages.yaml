@@ -26,7 +26,7 @@
 # CentOS7 and RHEL 7 fix
 
 - name: legacy - update all ansible.builtin.packages
-  ansible.builtin.shell: yum -y update
+  ansible.builtin.shell: "yum -y update"
   tags: update
   when: 
     - update_ansible.builtin.packages|bool
