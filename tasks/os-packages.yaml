@@ -1,42 +1,42 @@
 ---
-- name: update all packages
-  package:
+- name: update all ansible.builtin.packages
+  ansible.builtin.package:
     name: '*'
     state: latest
   tags: update
   when: 
-    - update_packages|bool
+    - update_ansible.builtin.packages|bool
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Debian'
 
 - name: update apt-get repo and cache
   tags: update
-  apt:
+  ansible.builtin.apt:
     upgrade: dist
-  when: update_packages|bool and ansible_distribution == 'Debian'
+  when: update_ansible.builtin.packages|bool and ansible_distribution == 'Debian'
 
-- name: install os packages
-  package: 
-    name: "{{ os_packages }}"
+- name: install os ansible.builtin.packages
+  ansible.builtin.package: 
+    name: "{{ os_ansible.builtin.packages }}"
     state: present
   tags: install
   when:
-    - os_packages is defined
+    - os_ansible.builtin.packages is defined
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Debian'
 
 # CentOS7 and RHEL 7 fix
 
-- name: legacy - update all packages
-  shell: yum -y update
+- name: legacy - update all ansible.builtin.packages
+  ansible.builtin.shell: yum -y update
   tags: update
   when: 
-    - update_packages|bool
+    - update_ansible.builtin.packages|bool
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
 
-- name: legacy - install os packages
-  shell: "yum -y install {{ item }}"
+- name: legacy - install os ansible.builtin.packages
+  ansible.builtin.shell: "yum -y install {{ item }}"
   with_items:
-    - "{{ os_packages }}"
+    - "{{ os_ansible.builtin.packages }}"
   tags: install
   when: 
-    - os_packages is defined
+    - os_ansible.builtin.packages is defined
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
