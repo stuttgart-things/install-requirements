@@ -1,12 +1,12 @@
 ---
-- ansible.builtin.include_tasks: os-requirements.yaml
+- include_tasks: os-requirements.yaml
   when: ansible_distribution == "CentOS"
 
-- ansible.builtin.include_tasks: ubuntu-requirements.yaml
+- include_tasks: ubuntu-requirements.yaml
   when: ansible_os_family == 'Debian'
   
-- ansible.builtin.include_tasks: os-packages.yaml
+- include_tasks: os-packages.yaml
   when: os_packages is defined
 
-- ansible.builtin.include_tasks: python-modules.yaml
+- include_tasks: python-modules.yaml
   when: python_modules is defined
