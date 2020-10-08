@@ -1,4 +1,4 @@
-install-requirements
+stuttgart-things/install-requirements
 ====================
 
 install, remove and update python and/or os packages.
