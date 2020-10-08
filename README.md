@@ -78,6 +78,7 @@ vars:
 ## Role Version:
 | date  | who | changelog |
 |---|---|---|
+|2020-10-08   | Marcel Zapf | fixed some bugs
 |2020-08-24   | Patrick Hermann  | fixed task names, fixed os task loop
 |2020-08-18   | Marcel Zapf   | initial commit, added tests and readme
 
