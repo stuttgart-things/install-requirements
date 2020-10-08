@@ -9,7 +9,7 @@
 
 # CentOS7 and RHEL 7 fix
 - name: legacy - make sure pip is installed
-  ansible.builtin.shell: "yum -y install {{ python_pip_name }}"
+  shell: "yum -y install {{ python_pip_name }}"
   when:
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
   tags: install
