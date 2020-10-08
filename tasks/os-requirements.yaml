@@ -1,4 +1,9 @@
 ---
+- name: update apt-cache
+  ansible.builtin.apt:
+    update_cache: yes
+  when: update_packages|bool and ansible_distribution == 'Debian'
+
 - name: install required repo for "{{ ansible_distribution }} {{ ansible_distribution_version }}"
   ansible.builtin.package: 
     name: "{{ required_repo }}"

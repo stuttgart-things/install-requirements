@@ -1,9 +1,4 @@
 ---
-- name: update apt-cache
-  ansible.builtin.apt:
-    update_cache: yes
-  when: update_packages|bool and ansible_distribution == 'Debian'
-
 - name: update all packages
   ansible.builtin.package:
     name: '*'
