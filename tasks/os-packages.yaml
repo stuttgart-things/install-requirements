@@ -6,7 +6,7 @@
   tags: update
   when: 
     - update_packages|bool
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Debian'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu'
 
 - name: update apt-get repo and cache
   tags: update
