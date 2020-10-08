@@ -12,7 +12,7 @@
   tags: update
   ansible.builtin.apt:
     upgrade: dist
-  when: update_packages|bool and ansible_distribution == 'Debian'
+  when: update_packages|bool and ansible_distribution == 'Ubuntu'
 
 - name: install os packages
   ansible.builtin.package: 
@@ -21,7 +21,7 @@
   tags: install
   when:
     - os_packages is defined
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Debian'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu'
 
 # CentOS7 and RHEL 7 fix
 
