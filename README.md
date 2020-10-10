@@ -80,4 +80,5 @@ Author Information
 ------------------
 
 Marcel Zapf (marcel.zapf@sva.de; SVA GmbH; 08/2020);
+
 Patrick Hermann (patrick.hermann@sva.de; SVA GmbH; 08/2020)
