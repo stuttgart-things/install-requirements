@@ -7,9 +7,6 @@ Requirements
 ------------
 
 installs role and all of it's dependencies w/:
-
-<details><summary>Install role</summary>
-
 ```
 cat <<EOF > /tmp/requirements.yaml
 - src: git@codehub.sva.de:Lab/stuttgart-things/supporting-roles/install-requirements.git
@@ -18,15 +15,12 @@ EOF
 ansible-galaxy install -r /tmp/requirements.yaml --force
 rm -rf /tmp/requirements.yaml
 ```
-</details>
 
 Example Playbook
 ----------------
 
 This playbook install the htop os package and the python module kubernetes with the version 10.0.1 and the latest openshift python module.
 
-<details><summary>Example</summary>
-<br/>
 Playbook: install-requirements.yml
 
 ```
@@ -51,16 +45,11 @@ Playbook execution:
 ```
 ansible-playbook -i inventory install-reqierements.yml
 ```
-</details>
 
 Role Variables
 --------------
 
 The following vars can be set:
-
-<details><summary>vars-examples</summary>
-<br/>
-
 ```
 vars:
   update_packages: true     # set for update or not update your os packages (update_packages: true/ false)
@@ -73,7 +62,6 @@ vars:
     - name: openshift       #   version: <package_version>
     
 ```
-</details>
 
 ## Role Version:
 | date  | who | changelog |
@@ -93,4 +81,3 @@ Author Information
 
 Marcel Zapf (marcel.zapf@sva.de; SVA GmbH; 08/2020);
 Patrick Hermann (patrick.hermann@sva.de; SVA GmbH; 08/2020)
-
