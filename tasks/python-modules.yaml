@@ -14,6 +14,14 @@
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
   tags: install
 
+- name: make sure pip is installed
+  ansible.builtin.package:
+    name: "{{ python_pip_name }}"
+    state: present
+
+- name: make sure pip is upgraded to latest version
+  shell: "/usr/bin/pip{{ python_version }} install pip --upgrade pip"
+
 - name: install python modules
   ansible.builtin.pip:
     name: "{{ item.name }}"
