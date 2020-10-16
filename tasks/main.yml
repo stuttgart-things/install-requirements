@@ -6,3 +6,8 @@
 
 - include_tasks: python-modules.yaml
   when: python_modules is defined
+
+- include_tasks: python-modules.yaml
+  when: ansible_collections is defined and ansible_collections.values()|length > 0
+
+
