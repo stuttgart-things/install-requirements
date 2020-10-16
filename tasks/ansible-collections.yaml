@@ -3,3 +3,5 @@
   shell:  |-
     ansible-galaxy collection install {{ item.value.name }} {{ item.value.version }} {{ collection_install_parameter }}
   loop: "{{ lookup('dict', ansible_collections, wantlist=True) }}"
+
+
