@@ -7,7 +7,6 @@
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu'
   tags: install
 
-# CentOS7 and RHEL 7 fix
 - name: legacy - make sure pip is installed
   shell: "yum -y install {{ python_pip_name }}"
   when:
@@ -20,7 +19,8 @@
     state: present
 
 - name: make sure pip is upgraded to latest version
-  shell: "/usr/bin/pip{{ python_version }} install pip --upgrade pip"
+  shell: |
+    /usr/bin/pip{{ python_version }} install pip --upgrade pip
 
 - name: install python modules
   ansible.builtin.pip:
@@ -31,4 +31,3 @@
   loop: "{{ python_modules }}"
   tags: install
   when: python_modules is defined
-
