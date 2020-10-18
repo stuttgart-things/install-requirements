@@ -13,6 +13,7 @@ cat <<EOF > /tmp/requirements.yaml
   version: stable
   scm: git
 EOF
+
 ansible-galaxy install -r /tmp/requirements.yaml --force
 rm -rf /tmp/requirements.yaml
 ```
