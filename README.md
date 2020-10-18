@@ -62,7 +62,16 @@ vars:
     - name: kubernetes      # the pip package that you want to install. If not set, no os package will be installed. If pip doesn't exist, it will be installed automatically. The pip version is decided based on the python version that is used by ansible on the target host.
       version: 10.0.1       # - python_modules: <package_name>
     - name: openshift       #   version: <package_version>
-    
+  ansible_collections:
+    podman:
+      name: containers.podman
+      version: 1.3.1
+    general:
+      name: community.general
+      version: 1.2.0
+    crypto:
+      name: community.crypto
+      version: 1.2.0
 ```
 
 ## Role Version:
