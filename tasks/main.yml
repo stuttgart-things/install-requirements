@@ -2,7 +2,7 @@
 - include_tasks: os-requirements.yaml
   
 - include_tasks: os-packages.yaml
-  when: os_packages is defined
+  when: os_packages is defined or update_packages | bool
 
 - include_tasks: python-modules.yaml
   when: python_modules is defined
