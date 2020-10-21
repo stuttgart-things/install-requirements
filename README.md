@@ -81,6 +81,7 @@ vars:
 |2020-08-24   | Patrick Hermann  | fixed task names, fixed os task loop
 |2020-10-08   | Marcel Zapf | fixed some bugs
 |2020-10-16   | Patrick Hermann | added task to install ansible collections
+|2020-10-21   | Marcel Zapf | fixed problem debian system not update os packages
 
 License
 -------
