@@ -9,8 +9,8 @@ stuttgart-things/release-packages
 Author Information
 ------------------
 
-Patrick Hermann (patrick.hermann@sva.de);
-Christian Mueller (christian.mueller@sva.de);
-Martin Wolf (martin.wolf@sva.de);
-Xiaomin Lai (xiaomin.lai@sva.de;
+Patrick Hermann (patrick.hermann@sva.de);  
+Christian Mueller (christian.mueller@sva.de);  
+Martin Wolf (martin.wolf@sva.de);  
+Xiaomin Lai (xiaomin.lai@sva.de;  
 Marcel Zapf (marcel.zapf@sva.de)
