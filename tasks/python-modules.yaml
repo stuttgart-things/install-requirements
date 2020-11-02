@@ -15,7 +15,7 @@
 
 - name: make sure pip is upgraded to latest version
   shell: |
-    /usr/bin/pip{{ python_version }} install pip --upgrade pip
+    {{ pip_dir }}/pip{{ python_version }} install pip --upgrade pip
 
 - name: install python modules
   ansible.builtin.pip:
