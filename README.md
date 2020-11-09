@@ -48,6 +48,36 @@ Playbook execution:
 ansible-playbook -i inventory install-reqierements.yml
 ```
 
+Role include in task file of another role:
+```
+# task file 
+...
+- name: Install prerequisites
+  include_role:
+    name: install-requirements
+  vars:
+    update_packages: "{{ packer_update_packages }}"
+    os_packages: "{{ packer_os_prerequisites }}"
+    python_modules: "{{ packer_python_modules }}"
+  tags: setup
+...
+```
+# defaults/vars/playbook..
+```
+...
+packer_update_packages: false
+
+packer_python_modules:
+  - name: netaddr
+
+packer_os_prerequisites:
+  - unzip
+  - git
+  - ansible
+...
+
+```
+
 Role Variables
 --------------
 
