@@ -61,9 +61,8 @@ Role include in task file of another role:
     python_modules: "{{ packer_python_modules }}"
   tags: setup
 ...
-```
+
 # defaults/vars/playbook..
-```
 ...
 packer_update_packages: false
 
