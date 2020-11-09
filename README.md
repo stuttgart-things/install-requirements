@@ -74,7 +74,7 @@ vars:
       version: 1.2.0
 ```
 
-## Role Version:
+## Role history:
 | date  | who | changelog |
 |---|---|---|
 |2020-08-18   | Marcel Zapf   | initial commit, added tests and readme
