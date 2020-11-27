@@ -38,3 +38,20 @@
   when: 
     - os_packages is defined
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
+
+- name: Remote RPM install
+  dnf: "name={{ item }}"
+  with_items:
+    - "{{ remote_os_packages }}"
+  when:
+    - remote_os_packages is defined
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8'
+
+- name: Remote deb install
+  apt:
+    deb: "{{ item }}"
+  with_items:
+    - "{{ remote_os_packages }}"
+  when:
+    - remote_os_packages is defined
+    - ansible_os_family == 'Debian'
