@@ -21,7 +21,7 @@
   tags: install
   when:
     - os_packages is defined
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_os_family == 'Debian' or  ansible_distribution == 'Fedora'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_os_family == 'Debian' or ansible_distribution == 'Fedora'
 
 - name: legacy - update all packages
   shell: yum -y update
@@ -38,28 +38,3 @@
   when: 
     - os_packages is defined
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
-
-- name: Remote RPM install
-  dnf: "name={{ item }}"
-  with_items:
-    - "{{ remote_os_packages }}"
-  when:
-    - remote_os_packages is defined
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8'
-
-- name: legacy - Remote RPM install
-  shell: "yum localinstall {{ item }}"
-  with_items:
-    - "{{ remote_os_packages }}"
-  when: 
-    - remote_os_packages is defined
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
-
-- name: Remote deb install
-  apt:
-    deb: "{{ item }}"
-  with_items:
-    - "{{ remote_os_packages }}"
-  when:
-    - remote_os_packages is defined
-    - ansible_os_family == 'Debian'
