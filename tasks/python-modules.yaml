@@ -1,6 +1,6 @@
 ---
 - name: Check if pip3 is installed
-  stat: 
+  ansible.builtin.stat: 
     path: /usr/bin/pip3
   register: pip3
 
