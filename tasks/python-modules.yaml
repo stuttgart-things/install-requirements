@@ -13,13 +13,13 @@
   tags: install
 
 - name: Legacy - make sure pip is installed
-  shell: "yum -y install {{ python_pip_name }}"
+  ansible.builtin.shell: "yum -y install {{ python_pip_name }}"
   when:
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and not pip3.stat.exists
   tags: install
 
 - name: Make sure pip is upgraded to latest version
-  shell: |
+  ansible.builtin.shell: |
     pip{{ 3 if pip3.stat.exists|bool else '2' }} install pip --upgrade pip
 
 - name: Install python modules
