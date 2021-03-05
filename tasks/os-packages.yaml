@@ -23,6 +23,8 @@
     - os_packages is defined
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_os_family == 'Debian' or ansible_distribution == 'Fedora'
 
+# ansible.builtin.shell: not compatible w/ awx 14 we still need for creating vms and packer in workflows..
+
 - name: legacy - update all packages
   shell: yum -y update
   tags: update
