@@ -4,7 +4,7 @@
     path: /usr/bin/pip3
   register: pip3
 
-- name: make sure pip is installed
+- name: Make sure pip is installed
   ansible.builtin.package:
     name: "{{ python_pip_name }}"
     state: present
@@ -12,16 +12,15 @@
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu' or ansible_distribution == 'Fedora' and not pip3.stat.exists
   tags: install
 
-- name: legacy - make sure pip is installed
+- name: Legacy - make sure pip is installed
   shell: "yum -y install {{ python_pip_name }}"
   when:
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and p.stat.pip_3_exists is defined and not pip3.stat.exists
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and not pip3.stat.exists
   tags: install
 
 - name: Make sure pip is upgraded to latest version
   shell: |
-    pip{{ python_version }} install pip --upgrade pip
-  when: not pip3.stat.exists
+    pip{{ 3 if pip3.stat.exists|bool else '2' }} install pip --upgrade pip
 
 - name: Install python modules
   ansible.builtin.pip:
