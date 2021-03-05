@@ -5,4 +5,3 @@
   loop: "{{ lookup('dict', ansible_collections, wantlist=True) }}"
 
 
-# ansible.builtin.shell: not compatible w/ awx 14 we still need for creating vms and packer in workflows..
