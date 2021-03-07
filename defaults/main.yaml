@@ -1,5 +1,4 @@
 ---
-# defaults file for install-requirements
 state: present
 python_version: 3
 python_pip_name: python3-pip
