@@ -1,9 +1,8 @@
 ---
 # defaults file for install-requirements
 state: present
-pip_dir: /usr/bin
-python_version: "{{ 3 if ansible_python.version.major == 3 else 2 }}"
-python_pip_name: "{{ 'python3-pip' if ansible_python.version.major == 3 else 'python-pip' }}"
+python_version: 3
+python_pip_name: python3-pip
 required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7' %}epel-release{% elif ansible_distribution == 'RedHat' and ansible_distribution_major_version == '7' %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm{% else %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm{% endif %}" 
 update_packages: false
 collection_install_parameter: --force
