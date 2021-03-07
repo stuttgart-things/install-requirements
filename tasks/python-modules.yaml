@@ -1,36 +1,50 @@
 ---
 - name: Check if pip3 is installed
-  ansible.builtin.stat: 
-    path: /usr/bin/pip3
-  register: pip3
+  shell: |
+    find /usr/bin /usr/local/bin -name "*pip3*"
+  register: pip3_installation_status
+  tags: python
+
+- name: Check if python3 is installed (pip3 was not found)
+  shell: |
+    find /usr/bin /usr/local/bin -name "*python3*"
+  register: python3_installation_status
+  when: pip3_installation_status.rc == 1
+  tags: python
+
+- name: Install python3 (python3 was not found)
+  include_role:
+    name: install-configure-python3
+  when: python3_installation_status.rc == 1
+  tags: python
 
 - name: Make sure pip is installed
   ansible.builtin.package:
     name: "{{ python_pip_name }}"
     state: present
   when:
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu' or ansible_distribution == 'Fedora' and not pip3.stat.exists
-  tags: install
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_distribution == 'Ubuntu' or ansible_distribution == 'Fedora' and pip3_installation_status.rc == 1
+  tags: python
 
 - name: Legacy - make sure pip is installed
   shell: "yum -y install {{ python_pip_name }}"
   when:
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and not pip3.stat.exists
-  tags: install
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and pip3_installation_status.rc == 1
+  tags: python
 
 - name: Legacy -Make sure pip is upgraded to latest version
   shell: |
-    pip{{ 3 if pip3.stat.exists|bool or ansible_distribution == 'Ubuntu' else '2' }} install pip --upgrade pip
+    pip3 install pip --upgrade pip
   when:
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and not pip3.stat.exists
-  tags: install
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and pip3_installation_status.rc == 1
+  tags: python
   
-- name: Install python modules
+- name: Install python modules w/ pip3
   ansible.builtin.pip:
     name: "{{ item.name }}"
     version: "{{ item.version | default(omit) }}"
-    executable: "pip{{ 3 if pip3.stat.exists|bool or ansible_distribution == 'Ubuntu' else '2' }}"
+    executable: pip3
     state: "{{ state }}"
   loop: "{{ python_modules }}"
-  tags: install
+  tags: python
   when: python_modules is defined
