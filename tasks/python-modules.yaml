@@ -46,5 +46,5 @@
     executable: pip3
     state: "{{ state }}"
   loop: "{{ python_modules }}"
-  tags: python
   when: python_modules is defined
+  tags: python
