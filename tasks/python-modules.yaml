@@ -15,7 +15,7 @@
 - name: Install python3 (python3 was not found)
   include_role:
     name: install-configure-python3
-  when: python3_installation_status.rc == 1
+  when: pip3_installation_status.rc == 1 and python3_installation_status is defined and python3_installation_status.rc == 1
   tags: python
 
 - name: Make sure pip is installed
