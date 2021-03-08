@@ -18,6 +18,10 @@
   when: pip3_installation_status.rc == 1 and python3_installation_status is defined and python3_installation_status.rc == 1
   tags: python
 
+- name: Set python3 as interpreter
+  ansible.builtin.set_fact:
+    ansible_python_interpreter: python3
+
 - name: Make sure pip is installed
   ansible.builtin.package:
     name: "{{ python_pip_name }}"
@@ -38,7 +42,7 @@
   when:
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and pip3_installation_status.rc == 1
   tags: python
-  
+
 - name: Install python modules w/ pip3
   ansible.builtin.pip:
     name: "{{ item.name }}"
