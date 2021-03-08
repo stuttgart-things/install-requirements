@@ -18,10 +18,6 @@
   when: pip3_installation_status.rc == 1 and python3_installation_status is defined and python3_installation_status.rc == 1
   tags: python
 
-- name: Set python3 as interpreter
-  ansible.builtin.set_fact:
-    ansible_python_interpreter: python3
-
 - name: Make sure pip is installed
   ansible.builtin.package:
     name: "{{ python_pip_name }}"
