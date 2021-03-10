@@ -39,11 +39,10 @@
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7' and pip3_installation_status.rc == 1
   tags: python
 
-- name: Install python modules w/ pip3
+- name: Install python modules
   ansible.builtin.pip:
     name: "{{ item.name }}"
     version: "{{ item.version | default(omit) }}"
-    executable: pip3
     state: "{{ state }}"
   loop: "{{ python_modules }}"
   when: python_modules is defined
