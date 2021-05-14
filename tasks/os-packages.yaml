@@ -1,4 +1,10 @@
 ---
+- name: Add epel rpm key 
+  ansible.builtin.rpm_key:
+    state: present
+    key: "{{ epel_rpm_key }}"
+  when: (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8'
+
 - name: update all packages
   ansible.builtin.package:
     name: '*'
