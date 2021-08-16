@@ -1,11 +1,15 @@
 ---
-- ansible.builtin.include_tasks: os-requirements.yaml
+- name: Install os-requirements
+  ansible.builtin.include_tasks: os-requirements.yaml
   
-- ansible.builtin.include_tasks: os-packages.yaml
+- name: Install os-packages
+  ansible.builtin.include_tasks: os-packages.yaml
   when: os_packages is defined or update_packages | bool
 
-- ansible.builtin.include_tasks: python-modules.yaml
+- name: Install python modules
+  ansible.builtin.include_tasks: python-modules.yaml
   when: python_modules is defined
 
-- ansible.builtin.include_tasks: ansible-collections.yaml
+- name: Install ansible collections
+  ansible.builtin.include_tasks: ansible-collections.yaml
   when: ansible_collections is defined and ansible_collections.values()|length > 0
