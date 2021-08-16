@@ -1,13 +1,11 @@
 ---
-- include_tasks: os-requirements.yaml
+- ansible.builtin.include_tasks: os-requirements.yaml
   
-- include_tasks: os-packages.yaml
+- ansible.builtin.include_tasks: os-packages.yaml
   when: os_packages is defined or update_packages | bool
 
-- include_tasks: python-modules.yaml
+- ansible.builtin.include_tasks: python-modules.yaml
   when: python_modules is defined
 
-- include_tasks: ansible-collections.yaml
+- ansible.builtin.include_tasks: ansible-collections.yaml
   when: ansible_collections is defined and ansible_collections.values()|length > 0
-
-
