@@ -1,36 +1,36 @@
 ---
-- name: update all packages
+- name: Update all packages
   ansible.builtin.package:
     name: '*'
     state: latest
   tags: update
   when: 
     - update_packages|bool
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_os_family == 'Debian' or  ansible_distribution == 'Fedora'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_os_family == 'Debian' or ansible_distribution == 'Fedora' or ansible_distribution == 'Suse'
 
-- name: update apt-get repo and cache
+- name: Update apt-get repo and cache
   tags: update
   ansible.builtin.apt:
     upgrade: dist
   when: update_packages|bool and ansible_os_family == 'Debian'
 
-- name: install os packages
+- name: Install os packages
   ansible.builtin.package: 
     name: "{{ os_packages }}"
     state: present
   tags: install
   when:
     - os_packages is defined
-    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_os_family == 'Debian' or ansible_distribution == 'Fedora'
+    - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '8' or ansible_os_family == 'Debian' or ansible_distribution == 'Fedora' or ansible_distribution == 'Suse'
 
-- name: legacy - update all packages
+- name: Legacy - update all packages
   shell: yum -y update
   tags: update
   when: 
     - update_packages|bool
     - (ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat') and ansible_distribution_major_version == '7'
 
-- name: legacy - install os packages
+- name: Legacy - install os packages
   shell: "yum -y install {{ item }}"
   with_items:
     - "{{ os_packages }}"
