@@ -3,7 +3,7 @@ state: present
 python_version: 3
 python_pip_name: python3-pip
 epel_rpm_key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}"
-required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_major_version is version('7', '>=') %}epel-release{% elif ansible_distribution == 'RedHat' and ansible_distribution_major_version is version('7', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% endif %}" 
+required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7' %}epel-release{% elif ansible_distribution == 'CentOS' and ansible_distribution_major_version is version('8', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% elif ansible_distribution == 'RedHat' and ansible_distribution_major_version is version('7', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% endif %}" 
 update_packages: false
 collection_install_parameter: --force
 ansible_collections: {}
