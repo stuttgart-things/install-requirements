@@ -3,7 +3,7 @@
   ansible.builtin.rpm_key:
     state: present
     key: "{{ epel_rpm_key }}"
-  when: update_packages|bool and ansible_distribution != 'Rocky'
+  when: update_packages|bool and ansible_distribution != 'Rocky' and  ansible_distribution != 'Ubuntu'
 
 - name: update apt-cache
   ansible.builtin.apt:
