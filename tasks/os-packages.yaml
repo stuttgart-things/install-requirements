@@ -21,8 +21,3 @@
   tags: install
   when:
     - os_packages is defined
-
-# - name: Reboot machine to apply kernel updates
-#   ansible.builtin.reboot:
-#     reboot_timeout: 3600
-#   when: os_update.changed
