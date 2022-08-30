@@ -1,13 +1,13 @@
 ---
 - name: Check if pip3 is installed
-  shell: |
+  ansible.builtin.shell: |
     ls /usr/bin /usr/local/bin | grep pip3
   register: pip3_installation_status
   tags: python
   ignore_errors: true
 
 - name: Check if python3 is installed (pip3 was not found)
-  shell: |
+  ansible.builtin.shell: |
     ls /usr/bin /usr/local/bin | grep -E "^python3"
   register: python3_installation_status
   when: pip3_installation_status.rc == 1
@@ -15,7 +15,7 @@
   ignore_errors: true
 
 - name: Install python3 (python3 was not found)
-  include_role:
+  ansible.builtin.include_role:
     name: install-configure-python3
   when: pip3_installation_status.rc == 1 and python3_installation_status is defined and python3_installation_status.rc == 1
   tags: python
