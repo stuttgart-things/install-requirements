@@ -10,7 +10,7 @@
 
 - name: Update apt-get repo and cache
   tags: update
-  ansible.builtin.apt:
+  community.general.apk:
     upgrade: dist
   when: update_packages|bool and ansible_os_family == 'Debian'
 
@@ -21,7 +21,6 @@
   tags: install
   when:
     - os_packages is defined
-
 
 # - name: Reboot machine to apply kernel updates
 #   ansible.builtin.reboot:
