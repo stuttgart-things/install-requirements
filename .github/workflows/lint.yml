@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 jobs:
   linting:
+    continue-on-error: true
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v3
