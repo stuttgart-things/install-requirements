@@ -9,9 +9,7 @@ Requirements
 installs role and all of it's dependencies w/:
 ```
 cat <<EOF > /tmp/requirements.yaml
-- src: git@codehub.sva.de:Lab/stuttgart-things/supporting-roles/install-requirements.git
-  scm: git
-- src: git@codehub.sva.de:Lab/stuttgart-things/supporting-roles/install-configure-python3.git
+- src: https://github.com/stuttgart-things/install-requirements.git
   scm: git
 EOF
 
@@ -121,5 +119,5 @@ BSD
 Author Information
 ------------------
 
-Marcel Zapf (marcel.zapf@sva.de; SVA GmbH; 08/2020);
-Patrick Hermann (patrick.hermann@sva.de; SVA GmbH; 08/2020)
+Marcel Zapf (marcel.zapf@sva.de; Stuttgart-Things; 08/2020);
+Patrick Hermann (patrick.hermann@sva.de; Stuttgart-Things; 08/2020)
