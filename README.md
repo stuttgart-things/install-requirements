@@ -26,25 +26,27 @@ Playbook: install-requirements.yml
 
 ```
 ---
-- hosts: localhost
+- name: Install packages
+  hosts: localhost
   gather_facts: true
   become: true
   vars:
     update_packages: true
     os_packages:
       - htop
+      - unzip
     python_modules:
       - name: kubernetes
         version: 10.0.1
       - name: openshift
-  
+
   roles:
-   - install-requirements
+    - install-requirements
 ```
 
 Playbook execution:
 ```
-ansible-playbook -i inventory install-reqierements.yml
+ansible-playbook -i inventory install-requirements.yml
 ```
 
 Role include in task file of another role:
