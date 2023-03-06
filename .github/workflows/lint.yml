@@ -17,4 +17,4 @@ jobs:
       - name: Ansible Lint
         uses: ansible/ansible-lint-action@v6.11.0
         with:
-          path: "tests/test.yml"
+          args: "--offline -p tests/test.yml"
