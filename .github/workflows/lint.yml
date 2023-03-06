@@ -12,9 +12,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-     # - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Ansible Lint
         uses: ansible/ansible-lint-action@v6.11.0
         with:
-          path: "test/test.yml"
+          path: "tests/test.yml"
