@@ -1,5 +1,6 @@
 ---
-- hosts: localhost
+- name: Install packages
+  hosts: localhost
   gather_facts: true
   become: true
   vars:
@@ -9,8 +10,8 @@
       - unzip
     python_modules:
       - name: kubernetes
-#        version: 10.0.1
+        version: 10.0.1
       - name: openshift
-  
+
   roles:
-   - install-requirements
+    - install-requirements

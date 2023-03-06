@@ -5,12 +5,12 @@
     key: "{{ epel_rpm_key }}"
   when: update_packages|bool and ansible_distribution != 'Rocky' and  ansible_distribution != 'Ubuntu'
 
-- name: update apt-cache
+- name: Update apt-cache
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
   when: update_packages|bool and ansible_distribution == 'Ubuntu'
 
-- name: install required repo for "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+- name: "Install required repo for {{ ansible_distribution }} {{ ansible_distribution_version }}"
   ansible.builtin.package:
     name: "{{ required_repo }}"
     state: present
