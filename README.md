@@ -3,10 +3,11 @@ stuttgart-things/install-requirements
 
 install, remove and update python and/or os packages.
 
-Requirements
-------------
+Role installation
+-----------------
 
-installs role and all of it's dependencies w/:
+<details><summary><b>Install this role on your ansible host (click here)</b></summary>
+
 ```
 cat <<EOF > /tmp/requirements.yaml
 - src: https://github.com/stuttgart-things/install-requirements.git
@@ -16,6 +17,8 @@ EOF
 ansible-galaxy install -r /tmp/requirements.yaml --force
 rm -rf /tmp/requirements.yaml
 ```
+</details>
+
 
 Example Playbook
 ----------------
