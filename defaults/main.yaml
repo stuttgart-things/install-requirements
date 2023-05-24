@@ -7,6 +7,7 @@ required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_
 update_packages: false
 collection_install_parameter: --force
 ansible_collections: {}
+username: "sthings"
 install_motd: false
 motd: |
   echo -e "\n";
