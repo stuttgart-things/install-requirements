@@ -1,0 +1,6 @@
+---
+- name: Install message of the day
+  ansible.builtin.blockinfile:
+    path: /home/{{ username }}/.bashrc
+    block: |
+      {{ motd }}
