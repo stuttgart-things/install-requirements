@@ -2,6 +2,10 @@
 - name: Install os-requirements
   ansible.builtin.include_tasks: os-requirements.yaml
 
+- name: Install message of the day
+  ansible.builtin.include_tasks: install-motd.yaml
+  when: install_motd|bool
+
 - name: Install os-packages
   ansible.builtin.include_tasks: os-packages.yaml
   when: os_packages is defined or update_packages | bool
