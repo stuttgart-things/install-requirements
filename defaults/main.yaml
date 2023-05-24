@@ -7,6 +7,7 @@ required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_
 update_packages: false
 collection_install_parameter: --force
 ansible_collections: {}
+install_motd: false
 motd: |
   echo -e "\n";
   echo -e "\033[1;33m
