@@ -12,7 +12,7 @@ install_motd: false
 motd: |
   echo -e "\n";
   echo -e "\033[1;33m
-  {{ lookup('file', 'vars/sthings.banner') }}\033[0m"
+  {{ lookup('file', 'defaults/sthings.banner') }}\033[0m"
   echo -e "\n"
   echo -e "\033[1;33m CPU:\t \033[0m" `echo "$(nproc)"` "Cores"  "\t" "\033[1;33m FQDN:\t\t \033[0m" `hostname -f`
   echo -e "\033[1;33m RAM:\t \033[0m" `free -h | grep Mem | awk '{ print $2 }' | sed 's/Gi//g'` "GB" "\t" "\033[1;33m DISTRIBUTION:\t \033[0m" `cat /etc/os-release | grep -w NAME | cut -d"=" -f2- | sed 's/"//g'` `cat /etc/os-release | grep -w VERSION | cut -d"=" -f2- | sed 's/"//g'`
