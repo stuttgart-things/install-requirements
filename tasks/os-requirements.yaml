@@ -14,7 +14,7 @@
 - name: Update apt-cache
   ansible.builtin.apt:
     update_cache: true
-  when: update_packages|bool and ansible_distribution == 'Ubuntu'
+  when: update_packages|bool and ansible_os_family == 'Debian'
 
 - name: "Install required repo for {{ ansible_distribution }} {{ ansible_distribution_version }}"
   ansible.builtin.package:
