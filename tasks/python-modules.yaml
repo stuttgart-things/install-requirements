@@ -27,11 +27,19 @@
   when: ansible_distribution_major_version != '7' and pip3_installation_status.rc == 1
   tags: python
 
+- name: Check version of pip
+  ansible.builtin.shell: |
+    pip --version | cut -d ' ' -f 2
+  ignore_errors: true
+  changed_when: false
+  register: pip_version
+
 - name: Downgrade pip
   ansible.builtin.shell: |
     pip install pip==22.3.1 --break-system-packages
   when: python_modules is defined
   tags: python
+  when: pip_version.stdout is version('22.3.1', '>')
   
 - name: Install python modules
   ansible.builtin.pip:
