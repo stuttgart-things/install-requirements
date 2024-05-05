@@ -40,6 +40,7 @@
   when: python_modules is defined
   tags: python
   when: pip_version.stdout is version('22.3.1', '>')
+  ignore_errors: true
   
 - name: Install python modules
   ansible.builtin.pip:
