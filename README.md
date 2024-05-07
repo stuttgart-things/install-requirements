@@ -3,7 +3,7 @@ stuttgart-things/install-requirements
 
 install, remove and update python and/or os packages.
 
-<details><summary>Variables</summary>
+<details><summary>VARIABLES</summary>
 
 The following vars can be set:
 ```yaml
@@ -128,7 +128,7 @@ ansible-playbook -i inventory install-requirements.yml
 
 </details>
 
-<details><summary>License</summary>
+<details><summary>LICENSE</summary>
 
 Copyright 2020 patrick hermann.
 
