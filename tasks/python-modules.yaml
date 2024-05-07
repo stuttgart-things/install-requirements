@@ -4,6 +4,7 @@
     ls /usr/bin /usr/local/bin | grep pip3
   register: pip3_installation_status
   tags: python
+  changed_when: false
   ignore_errors: true
 
 - name: Check if python3 is installed (pip3 was not found)
@@ -12,6 +13,7 @@
   register: python3_installation_status
   when: pip3_installation_status.rc == 1
   tags: python
+  changed_when: false
   ignore_errors: true
 
 - name: Install python3 (python3 was not found)
@@ -39,9 +41,10 @@
     pip install pip==22.3.1 --break-system-packages
   when: python_modules is defined
   tags: python
-  when: pip_version.stdout is version('22.3.1', '>')
+  changed_when: false
+  # when: pip_version.stdout is version('22.3.1', '>')
   ignore_errors: true
-  
+
 - name: Install python modules
   ansible.builtin.pip:
     name: "{{ item.name }}"
