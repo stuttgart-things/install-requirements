@@ -3,7 +3,7 @@ state: present
 python_version: 3
 python_pip_name: python3-pip
 epel_rpm_key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}"
-required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7' %}epel-release{% elif ansible_distribution == 'CentOS' and ansible_distribution_major_version is version('8', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% elif ansible_distribution == 'RedHat' and ansible_distribution_major_version is version('7', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% endif %}" 
+required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7' %}epel-release{% elif ansible_distribution == 'CentOS' and ansible_distribution_major_version is version('8', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% elif ansible_distribution == 'RedHat' and ansible_distribution_major_version is version('7', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% endif %}"
 update_packages: false
 collection_install_parameter: --force
 ansible_collections: {}
@@ -19,7 +19,7 @@ motd: |
   echo -e "\033[1;33m DISK:\t \033[0m" `sudo fdisk -l | grep /dev/*da | grep -w /dev/*da | awk '{ print $3 " " $4}' | sed 's/,//g'` "\t" "\033[1;33m KERNEL:\t \033[0m" `uname -a | awk '{print $3}'`
   echo -e "\033[1;33m UPTIME: \033[0m"  `uptime | awk '{print $3" "$4}' | sed 's/,//g'` "\t" "\033[1;33m DATE:\t\t \033[0m"  `date`
   echo -e "\033[1;33m USER:\t \033[0m" `/usr/bin/whoami` "\t" "\033[1;33m GROUPS:\t \033[0m" `/usr/bin/groups`
-  echo -e "\033[1;33m PYTHON: \033[0m" `python3 --version | awk '{print $2}'` "\t" "\033[1;33m IP:\t\t \033[0m" `hostname -I | awk '{print $1}'` "\n" 
+  echo -e "\033[1;33m PYTHON: \033[0m" `python3 --version | awk '{print $2}'` "\t" "\033[1;33m IP:\t\t \033[0m" `hostname -I | awk '{print $1}'` "\n"
   echo -e "\033[1;33m SESSIONS:"
   echo -e "\033[1;33m User     TTY          since             ip \033[0m"
   echo -e "\033[1;37m `/usr/bin/who` \033[0m" "\n"

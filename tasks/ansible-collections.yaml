@@ -2,4 +2,5 @@
 - name: Install ansible collections
   ansible.builtin.shell: |
     ansible-galaxy collection install {{ item.value.name }}:=={{ item.value.version }} {{ collection_install_parameter }}
+  changed_when: false
   loop: "{{ lookup('dict', ansible_collections, wantlist=True) }}"
