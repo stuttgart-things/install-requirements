@@ -146,7 +146,8 @@ limitations under the License.
 
 </details>
 
-## Role history:
+## Role history
+
 | date  | who | changelog |
 |---|---|---|
 |2024-05-07   | Andre Ebert | linting and testing on different OS
