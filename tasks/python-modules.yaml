@@ -45,11 +45,42 @@
   # when: pip_version.stdout is version('22.3.1', '>')
   ignore_errors: true
 
-- name: Install python modules
+- name: Ensure Python 3.12 and venv are installed
+  apt:
+    name:
+      - python3.12
+      - python3.12-venv
+      - python3.12-dev
+    state: present
+  become: true
+ 
+- name: Create a virtual environment
+  command: python3.12 -m venv /opt/k3s-venv
+  args:
+    creates: /opt/k3s-venv
+  become: true
+ 
+- name: Ensure pip is available in the virtual environment
+  command: /opt/k3s-venv/bin/python3 -m ensurepip --upgrade
+  args:
+    creates: /opt/k3s-venv/bin/pip
+  become: true
+ 
+- name: Install required Python modules in venv
+  command: /opt/k3s-venv/bin/python3 -m pip install packaging kubernetes openshift
+  become: true
+ 
+- name: Set interpreter for later tasks
+  set_fact:
+    ansible_python_interpreter: /opt/k3s-venv/bin/python
+ 
+- name: Install additional Python modules in venv
   ansible.builtin.pip:
     name: "{{ item.name }}"
     version: "{{ item.version | default(omit) }}"
-    state: "{{ state }}"
+    state: "{{ state | default('present') }}"
+    executable: /opt/k3s-venv/bin/pip3
   loop: "{{ python_modules }}"
   when: python_modules is defined
   tags: python
+  become: true
