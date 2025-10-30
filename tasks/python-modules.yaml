@@ -1,55 +1,96 @@
 ---
-- name: Check if pip3 is installed
-  ansible.builtin.shell: |
-    ls /usr/bin /usr/local/bin | grep pip3
-  register: pip3_installation_status
-  tags: python
-  changed_when: false
-  ignore_errors: true
-
-- name: Check if python3 is installed (pip3 was not found)
-  ansible.builtin.shell: |
-    ls /usr/bin /usr/local/bin | grep -E "^python3"
-  register: python3_installation_status
-  when: pip3_installation_status.rc == 1
-  tags: python
-  changed_when: false
-  ignore_errors: true
-
-- name: Install python3 (python3 was not found)
-  ansible.builtin.include_role:
-    name: install-configure-python3
-  when: pip3_installation_status.rc == 1 and python3_installation_status is defined and python3_installation_status.rc == 1
-  tags: python
-
-- name: Make sure pip is installed
+- name: Ensure Python venv and dev packages are installed
   ansible.builtin.package:
-    name: "{{ python_pip_name }}"
+    name:
+      - "{{ python_bin | regex_replace('.*python(\\d+\\.\\d+)', 'python\\1-venv') }}"
+      - "{{ python_bin | regex_replace('.*python(\\d+\\.\\d+)', 'python\\1-dev') }}"
     state: present
-  when: ansible_distribution_major_version != '7' and pip3_installation_status.rc == 1
-  tags: python
 
-- name: Check version of pip
-  ansible.builtin.shell: |
-    pip --version | cut -d ' ' -f 2
-  ignore_errors: true
-  changed_when: false
-  register: pip_version
+- name: Create virtual environment
+  ansible.builtin.command: "{{ python_bin }} -m venv {{ venv_path }}"
+  args:
+    creates: "{{ venv_path }}"
+  become: true
 
-- name: Downgrade pip
-  ansible.builtin.shell: |
-    pip install pip==22.3.1 --break-system-packages
+- name: Ensure pip is available in the virtual environment
+  ansible.builtin.command: "{{ venv_path }}/bin/python -m ensurepip --upgrade"
+  args:
+    creates: "{{ venv_path }}/bin/pip"
+  become: true
+
+- name: Downgrade pip if needed
+  ansible.builtin.pip:
+    name: pip
+    version: "{{ python_version }}"
+    executable: "{{ venv_path }}/bin/pip"
   when: python_modules is defined
-  tags: python
-  changed_when: false
-  # when: pip_version.stdout is version('22.3.1', '>')
-  ignore_errors: true
+  become: true
 
-- name: Install python modules
+- name: Install required Python modules in venv
   ansible.builtin.pip:
     name: "{{ item.name }}"
     version: "{{ item.version | default(omit) }}"
-    state: "{{ state }}"
+    executable: "{{ venv_path }}/bin/pip"
   loop: "{{ python_modules }}"
   when: python_modules is defined
-  tags: python
+  become: true
+
+- name: Set interpreter for later tasks
+  ansible.builtin.set_fact:
+    ansible_python_interpreter: "{{ venv_path }}/bin/python"
+
+
+#- name: Check if pip3 is installed
+#  ansible.builtin.shell: |
+#    ls /usr/bin /usr/local/bin | grep pip3
+#  register: pip3_installation_status
+#  tags: python
+#  changed_when: false
+#  ignore_errors: true
+#
+#- name: Check if python3 is installed (pip3 was not found)
+#  ansible.builtin.shell: |
+#    ls /usr/bin /usr/local/bin | grep -E "^python3"
+#  register: python3_installation_status
+#  when: pip3_installation_status.rc == 1
+#  tags: python
+#  changed_when: false
+#  ignore_errors: true
+#
+#- name: Install python3 (python3 was not found)
+#  ansible.builtin.include_role:
+#    name: install-configure-python3
+#  when: pip3_installation_status.rc == 1 and python3_installation_status is defined and python3_installation_status.rc == 1
+#  tags: python
+#
+#- name: Make sure pip is installed
+#  ansible.builtin.package:
+#    name: "{{ python_pip_name }}"
+#    state: present
+#  when: ansible_distribution_major_version != '7' and pip3_installation_status.rc == 1
+#  tags: python
+#
+#- name: Check version of pip
+#  ansible.builtin.shell: |
+#    pip --version | cut -d ' ' -f 2
+#  ignore_errors: true
+#  changed_when: false
+#  register: pip_version
+#
+#- name: Downgrade pip
+#  ansible.builtin.shell: |
+#    pip install pip==22.3.1 --break-system-packages
+#  when: python_modules is defined
+#  tags: python
+#  changed_when: false
+#  # when: pip_version.stdout is version('22.3.1', '>')
+#  ignore_errors: true
+#
+#- name: Install python modules
+#  ansible.builtin.pip:
+#    name: "{{ item.name }}"
+#    version: "{{ item.version | default(omit) }}"
+#    state: "{{ state }}"
+#  loop: "{{ python_modules }}"
+#  when: python_modules is defined
+#  tags: python

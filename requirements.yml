@@ -1,0 +1,25 @@
+---
+collections:
+  - name: community.crypto
+    version: 3.0.5
+  - name: community.general
+    version: 10.7.5
+  - name: ansible.posix
+    version: 2.0.0
+  - name: kubernetes.core
+    version: 5.4.1
+  - name: community.docker
+    version: 4.5.0
+  - name: community.vmware
+    version: 5.4.0
+  - name: awx.awx
+    version: 24.6.1
+  - name: community.hashi_vault
+    version: 6.2.0
+  - name: ansible.netcommon
+    version: 8.1.0
+
+roles:
+  - src: https://github.com/stuttgart-things/install-requirements.git
+    scm: git
+    version: feature/add-molecule-testing
