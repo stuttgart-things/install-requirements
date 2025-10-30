@@ -1,5 +1,7 @@
 ---
 state: present
+venv_path: "/opt/k3s-venv"
+python_bin: "{{ ansible_facts.python.executable | default('/usr/bin/python3') }}"
 python_version: 3
 python_pip_name: python3-pip
 epel_rpm_key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}"
