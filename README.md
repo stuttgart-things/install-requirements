@@ -10,7 +10,7 @@ The following vars can be set:
 vars:
   update_packages: true     # set for update or not update your os packages (update_packages: true/ false)
   os_packages:
-    - htop  
+    - htop
     - unzip # the os package that you want to install. If not set, no os package will be installed. (os_packages: <package_name>)
   python_modules:
     - name: kubernetes      # the pip package that you want to install. If not set, no os package will be installed. If pip doesn't exist, it will be installed automatically. The pip version is decided based on the python version that is used by ansible on the target host.
@@ -113,7 +113,7 @@ ansible-playbook -i inventory install-requirements.yml
 <details><summary>EXAMPLE ROLE INCLUDE OF ANOTHER ROLE</summary>
 
 ```yaml
-# task file 
+# task file
 ...
 - name: Install prerequisites
   include_role:

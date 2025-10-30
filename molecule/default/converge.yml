@@ -32,6 +32,3 @@
     - name: Start install_requirements
       ansible.builtin.include_role:
         name: install-requirements
-
-  # roles:
-  #   - role: download-install-binary

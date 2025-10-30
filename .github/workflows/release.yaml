@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       release-tag:
+        description: 'Tag name for the release'
         required: true
         type: string
       release-message:
+        description: 'Release message/notes'
         required: true
         type: string
 
@@ -20,5 +22,5 @@ jobs:
       release-message: "${{ github.event.inputs.release-message }}"
       environment-name: k8s
       archive-kind: tar.gz
-      runs-on: ghr-install-requirements-labda-test
+      runs-on: ghr-install-requirements-in-cluster
       continue-error: false
