@@ -16,7 +16,7 @@ on:
 jobs:
   yaml-lint:
     name: Lint yaml files
-    uses: stuttgart-things/github-workflow-templates/.github/workflows/call-yaml-lint.yaml@yaml-lint-1
+    uses: stuttgart-things/github-workflow-templates/.github/workflows/call-yaml-lint.yaml@main
     with:
       runs-on: ghr-install-requirements-in-cluster
       environment-name: k8s
