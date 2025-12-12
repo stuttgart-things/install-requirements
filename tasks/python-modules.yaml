@@ -1,4 +1,4 @@
-
+---
 - name: Detect Python version
   command: "{{ python_bin }} -c 'import sys; print(\"{}.{}\".format(sys.version_info[0], sys.version_info[1]))'"
   register: python_version_output
@@ -8,12 +8,21 @@
   set_fact:
     python_version: "{{ python_version_output.stdout }}"
 
-- name: Ensure Python venv and dev packages are installed
+- name: Ensure Python venv and dev packages are installed (Debian/Ubuntu)
   package:
     name:
       - "python{{ python_version }}-venv"
       - "python{{ python_version }}-dev"
     state: present
+  when: ansible_os_family == 'Debian'
+
+- name: Ensure Python venv and dev packages are installed (RedHat/Fedora)
+  package:
+    name:
+      - python3-devel
+      - python3-pip
+    state: present
+  when: ansible_os_family == 'RedHat'
 
 - name: Create virtual environment
   command: "{{ python_bin }} -m venv {{ venv_path }}"
@@ -27,9 +36,10 @@
     creates: "{{ venv_path }}/bin/pip"
   become: true
 
-- name: Upgrade pip and setuptools to avoid Python 3.12 issues
+- name: Upgrade pip and setuptools to avoid Python 3.12+ issues
   command: "{{ venv_path }}/bin/pip install --upgrade pip setuptools"
   become: true
+  changed_when: false
 
 - name: Check pip version
   command: "{{ venv_path }}/bin/pip --version"
