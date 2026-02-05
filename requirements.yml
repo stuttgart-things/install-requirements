@@ -17,4 +17,4 @@ collections:
   - name: community.hashi_vault
     version: 7.1.0
   - name: ansible.netcommon
-    version: 8.1.0
+    version: 8.4.0
