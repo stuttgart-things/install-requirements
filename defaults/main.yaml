@@ -4,8 +4,8 @@ venv_path: "/opt/k3s-venv"
 python_bin: "{{ ansible_facts.python.executable | default('/usr/bin/python3') }}"
 python_version: 3
 python_pip_name: python3-pip
-epel_rpm_key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}"
-required_repo: "{% if ansible_distribution == 'CentOS' and ansible_distribution_major_version == '7' %}epel-release{% elif ansible_distribution == 'CentOS' and ansible_distribution_major_version is version('8', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% elif ansible_distribution == 'RedHat' and ansible_distribution_major_version is version('7', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm{% endif %}"
+epel_rpm_key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_facts['distribution_major_version'] }}"
+required_repo: "{% if ansible_facts['distribution'] == 'CentOS' and ansible_facts['distribution_major_version'] == '7' %}epel-release{% elif ansible_facts['distribution'] == 'CentOS' and ansible_facts['distribution_major_version'] is version('8', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_facts['distribution_major_version'] }}.noarch.rpm{% elif ansible_facts['distribution'] == 'RedHat' and ansible_facts['distribution_major_version'] is version('7', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_facts['distribution_major_version'] }}.noarch.rpm{% endif %}"
 update_packages: false
 collection_install_parameter: --force
 ansible_collections: {}

@@ -3,21 +3,21 @@
   ansible.builtin.rpm_key:
     state: present
     key: "{{ epel_rpm_key }}"
-  when: update_packages|bool and ansible_distribution == 'CentOS'
+  when: update_packages|bool and ansible_facts['distribution'] == 'CentOS'
 
 - name: Add epel for RHEL9
   ansible.builtin.shell: |
     subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms
     dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
   changed_when: true
-  when: ansible_distribution == 'RedHat'
+  when: ansible_facts['distribution'] == 'RedHat'
 
 - name: Update apt-cache
   ansible.builtin.apt:
     update_cache: true
-  when: update_packages|bool and ansible_os_family == 'Debian'
+  when: update_packages|bool and ansible_facts['os_family'] == 'Debian'
 
-- name: "Install required repo for {{ ansible_distribution }} {{ ansible_distribution_version }}"
+- name: "Install required repo for {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
   ansible.builtin.package:
     name: "{{ required_repo }}"
     state: present

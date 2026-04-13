@@ -12,7 +12,7 @@
   tags: update
   ansible.builtin.apt:
     upgrade: dist
-  when: update_packages|bool and ansible_os_family == 'Debian'
+  when: update_packages|bool and ansible_facts['os_family'] == 'Debian'
 
 - name: Install os packages
   ansible.builtin.package:
