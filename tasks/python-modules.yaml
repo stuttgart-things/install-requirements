@@ -14,7 +14,7 @@
       - "python{{ python_version }}-venv"
       - "python{{ python_version }}-dev"
     state: present
-  when: ansible_os_family == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'
 
 - name: Ensure Python venv and dev packages are installed (RedHat/Fedora)
   package:
@@ -22,7 +22,7 @@
       - python3-devel
       - python3-pip
     state: present
-  when: ansible_os_family == 'RedHat'
+  when: ansible_facts['os_family'] == 'RedHat'
 
 - name: Create virtual environment
   command: "{{ python_bin }} -m venv {{ venv_path }}"
@@ -37,7 +37,7 @@
   become: true
 
 - name: Upgrade pip and setuptools to avoid Python 3.12+ issues
-  command: "{{ venv_path }}/bin/pip install --upgrade pip setuptools"
+  command: "{{ venv_path }}/bin/pip install --upgrade pip setuptools packaging"
   become: true
   changed_when: false
 
