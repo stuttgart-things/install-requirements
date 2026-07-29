@@ -17,9 +17,16 @@
     update_cache: true
   when: update_packages|bool and ansible_facts['os_family'] == 'Debian'
 
+# `required_repo` (defaults/main.yaml) is an if/elif chain covering only CentOS
+# and RedHat, with no {% else %} — on every Debian/Ubuntu host it renders to the
+# empty string. Without the guard this task calls `package: name: ""` and fails
+# with `No package matching '' is available` on each run, which ignore_errors
+# then swallows. Skip it instead: an expected red `fatal:` on every host trains
+# people to skim past the ones that matter.
 - name: "Install required repo for {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
   ansible.builtin.package:
     name: "{{ required_repo }}"
     state: present
   tags: install
+  when: required_repo | default('') | length > 0
   ignore_errors: true
