@@ -15,6 +15,18 @@
 - name: Update apt-cache
   ansible.builtin.apt:
     update_cache: true
+    lock_timeout: "{{ apt_lock_timeout }}"
+  register: apt_cache_update
+  # Retried ONLY while the failure is a held dpkg lock; any other failure ends
+  # the loop at once and fails the task. `lock_timeout` alone does not cover
+  # this: it bounds the module's own python-apt lock, not the apt-get it runs
+  # for upgrades (measured: fails immediately against a held lock).
+  retries: "{{ (apt_lock_timeout | int) // (apt_lock_retry_delay | int) }}"
+  delay: "{{ apt_lock_retry_delay | int }}"
+  until: >-
+    apt_cache_update is succeeded or not (
+      ((apt_cache_update.msg | default('')) ~ (apt_cache_update.stderr | default(''))) is search('Could not get lock|Unable to acquire the dpkg')
+    )
   when: update_packages|bool and ansible_facts['os_family'] == 'Debian'
 
 # `required_repo` (defaults/main.yaml) is an if/elif chain covering only CentOS

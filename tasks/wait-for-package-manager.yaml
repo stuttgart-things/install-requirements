@@ -1,0 +1,20 @@
+---
+# Debian/Ubuntu only. On a VM that was booted seconds ago cloud-init and the
+# apt-daily timers still run apt, and every apt task below would fail with
+# "Unable to acquire the dpkg frontend lock" (install-requirements#46: a
+# ClusterStack's base-OS stage failed exactly so and blocked the cluster build).
+- name: Check whether cloud-init is present
+  ansible.builtin.command: sh -c 'command -v cloud-init'
+  register: cloud_init_bin
+  changed_when: false
+  failed_when: false
+
+# `status --wait` exits 0 (done), 1 (error) or 2 (done, degraded). Only
+# "finished" matters here, not whether cloud-init itself was happy, so none of
+# them fails the play. `timeout` bounds a cloud-init that never finishes.
+- name: Wait for cloud-init to finish
+  ansible.builtin.command: "timeout {{ cloud_init_wait_timeout }} cloud-init status --wait"
+  register: cloud_init_wait
+  changed_when: false
+  failed_when: cloud_init_wait.rc == 124
+  when: cloud_init_bin.rc == 0
