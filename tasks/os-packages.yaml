@@ -1,4 +1,27 @@
 ---
+# Debian goes through ansible.builtin.apt, retried while the dpkg lock is held
+# (see defaults: apt_lock_timeout). Other families keep the generic module.
+- name: Update all packages
+  ansible.builtin.apt:
+    name: '*'
+    state: latest
+    lock_timeout: "{{ apt_lock_timeout }}"
+  tags: update
+  register: os_update
+  # Retried ONLY while the failure is a held dpkg lock; any other failure ends
+  # the loop at once and fails the task. `lock_timeout` alone does not cover
+  # this: it bounds the module's own python-apt lock, not the apt-get it runs
+  # for upgrades (measured: fails immediately against a held lock).
+  retries: "{{ (apt_lock_timeout | int) // (apt_lock_retry_delay | int) }}"
+  delay: "{{ apt_lock_retry_delay | int }}"
+  until: >-
+    os_update is succeeded or not (
+      ((os_update.msg | default('')) ~ (os_update.stderr | default(''))) is search('Could not get lock|Unable to acquire the dpkg')
+    )
+  when:
+    - update_packages|bool
+    - ansible_facts['os_family'] == 'Debian'
+
 - name: Update all packages
   ansible.builtin.package:
     name: '*'
@@ -6,13 +29,46 @@
   tags: update
   when:
     - update_packages|bool
-  register: os_update
+    - ansible_facts['os_family'] != 'Debian'
 
 - name: Update apt-get repo and cache
   tags: update
   ansible.builtin.apt:
     upgrade: dist
+    lock_timeout: "{{ apt_lock_timeout }}"
+  register: os_dist_upgrade
+  # Retried ONLY while the failure is a held dpkg lock; any other failure ends
+  # the loop at once and fails the task. `lock_timeout` alone does not cover
+  # this: it bounds the module's own python-apt lock, not the apt-get it runs
+  # for upgrades (measured: fails immediately against a held lock).
+  retries: "{{ (apt_lock_timeout | int) // (apt_lock_retry_delay | int) }}"
+  delay: "{{ apt_lock_retry_delay | int }}"
+  until: >-
+    os_dist_upgrade is succeeded or not (
+      ((os_dist_upgrade.msg | default('')) ~ (os_dist_upgrade.stderr | default(''))) is search('Could not get lock|Unable to acquire the dpkg')
+    )
   when: update_packages|bool and ansible_facts['os_family'] == 'Debian'
+
+- name: Install os packages
+  ansible.builtin.apt:
+    name: "{{ os_packages }}"
+    state: present
+    lock_timeout: "{{ apt_lock_timeout }}"
+  tags: install
+  register: os_install
+  # Retried ONLY while the failure is a held dpkg lock; any other failure ends
+  # the loop at once and fails the task. `lock_timeout` alone does not cover
+  # this: it bounds the module's own python-apt lock, not the apt-get it runs
+  # for upgrades (measured: fails immediately against a held lock).
+  retries: "{{ (apt_lock_timeout | int) // (apt_lock_retry_delay | int) }}"
+  delay: "{{ apt_lock_retry_delay | int }}"
+  until: >-
+    os_install is succeeded or not (
+      ((os_install.msg | default('')) ~ (os_install.stderr | default(''))) is search('Could not get lock|Unable to acquire the dpkg')
+    )
+  when:
+    - os_packages is defined
+    - ansible_facts['os_family'] == 'Debian'
 
 - name: Install os packages
   ansible.builtin.package:
@@ -21,3 +77,4 @@
   tags: install
   when:
     - os_packages is defined
+    - ansible_facts['os_family'] != 'Debian'

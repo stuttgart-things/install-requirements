@@ -9,6 +9,10 @@ The following vars can be set:
 ```yaml
 vars:
   update_packages: true     # set for update or not update your os packages (update_packages: true/ false)
+  wait_for_cloud_init: true  # Debian: wait for `cloud-init status --wait` before any apt task
+  cloud_init_wait_timeout: 900
+  apt_lock_timeout: 600      # Debian: seconds apt tasks retry while the dpkg lock is held (fresh VMs)
+  apt_lock_retry_delay: 10
   os_packages:
     - htop
     - unzip # the os package that you want to install. If not set, no os package will be installed. (os_packages: <package_name>)

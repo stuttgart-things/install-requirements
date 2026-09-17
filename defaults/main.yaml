@@ -7,6 +7,15 @@ python_pip_name: python3-pip
 epel_rpm_key: "https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-{{ ansible_facts['distribution_major_version'] }}"
 required_repo: "{% if ansible_facts['distribution'] == 'CentOS' and ansible_facts['distribution_major_version'] == '7' %}epel-release{% elif ansible_facts['distribution'] == 'CentOS' and ansible_facts['distribution_major_version'] is version('8', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_facts['distribution_major_version'] }}.noarch.rpm{% elif ansible_facts['distribution'] == 'RedHat' and ansible_facts['distribution_major_version'] is version('7', '>=') %}https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_facts['distribution_major_version'] }}.noarch.rpm{% endif %}"
 update_packages: false
+# A fresh VM runs its own apt right after first boot (cloud-init
+# package_update/upgrade, apt-daily-upgrade / unattended-upgrades) and holds the
+# dpkg lock for minutes (install-requirements#46). Wait for cloud-init to
+# finish, then let every apt task retry for up to apt_lock_timeout seconds while
+# — and only while — the failure is a held lock.
+wait_for_cloud_init: true
+cloud_init_wait_timeout: 900
+apt_lock_timeout: 600
+apt_lock_retry_delay: 10
 collection_install_parameter: --force
 ansible_collections: {}
 username: "sthings"
