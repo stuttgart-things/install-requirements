@@ -2,5 +2,11 @@
 - name: Install message of the day
   ansible.builtin.blockinfile:
     path: "/home/{{ username }}/.bashrc"
+    # Only on an interactive login shell on a terminal, outside tmux: the
+    # banner used to run on EVERY interactive bash -- each tmux pane, each
+    # VS Code terminal, every `bash -ic` -- and its output broke scripts that
+    # parse a command's stdout (stuttgart-things/stuttgart-things#3439).
     block: |
+      if [ -t 1 ] && [ -z "$TMUX" ] && shopt -q login_shell; then
       {{ motd }}
+      fi
