@@ -173,12 +173,36 @@ esac
 virt=$(systemd-detect-virt 2>/dev/null)
 case "$virt" in vmware) hv=vSphere ;; kvm|qemu) hv=Proxmox ;; none) hv=bare-metal ;; *) hv=$virt ;; esac
 product=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
-where="$lab · $hv"
-case "$product" in crossplane-*) where+=" · ${product}" ;; esac
+hvx=$hv
+# BUILT: the build marker sthings.baseos.setup writes from the order
+# (/etc/sthings/build.yaml: source, order, use case, lab, management cluster,
+# date). Without one, a Crossplane-built Proxmox VM still says so through the
+# SMBIOS product its composition sets.
+built=""
+if [ -r /etc/sthings/build.yaml ]; then
+  declare -A bm=()
+  while IFS=': ' read -r bk bv; do
+    case "$bk" in ''|\#*) ;; *) bm[$bk]=$bv ;; esac
+  done </etc/sthings/build.yaml
+  for bk in source use_case order management_cluster built; do
+    [ -n "${bm[$bk]:-}" ] && built+="${built:+ · }${bm[$bk]}"
+  done
+  [ -n "${bm[management_cluster]:-}" ] && built=${built/" · ${bm[management_cluster]}"/" · via ${bm[management_cluster]}"}
+fi
+case "$product" in crossplane-*) [ -z "$built" ] && built="${product} (no build marker)" ;; esac
 ip=$(hostname -I 2>/dev/null | cut -d' ' -f1)
 # shellcheck disable=SC1091
 . /etc/os-release 2>/dev/null
-mem=$(awk '/MemTotal/{printf "%.0f", $2/1048576}' /proc/meminfo)
+# Installed memory: online memory blocks in sysfs (16 GiB), not MemTotal
+# (15.1 GiB: what is left after the kernel's reservations). MemTotal rounded
+# where sysfs has no memory blocks.
+mem=""
+if read -r mbs 2>/dev/null </sys/devices/system/memory/block_size_bytes; then
+  nb=0
+  for f in /sys/devices/system/memory/memory*/state; do read -r ms <"$f" && [ "$ms" = online ] && nb=$((nb + 1)); done
+  [ $nb -gt 0 ] && mem=$(( nb * 0x$mbs / 1073741824 ))
+fi
+[ -n "$mem" ] || mem=$(awk '/MemTotal/{printf "%.0f", $2/1048576}' /proc/meminfo)
 up=$(uptime -p | sed 's/^up //; s/, [0-9]* minutes\?$//; s/ weeks\?/w/; s/ days\?/d/; s/ hours\?/h/; s/ minutes\?/m/; s/,//g')
 read -r load1 _ < /proc/loadavg
 
@@ -196,14 +220,23 @@ else SW_W=$(( cols - 10 < 78 ? cols - 10 : 78 )); fi
 P=()
 # kf KEY -> $KK, the coloured, padded key (printf -v: no subshell per row)
 kf() { printf -v KK '%s%-7s%s' "$acc" "${1^^}" "$n"; }
-P+=("${b}${acc}${fqdn}${n}")
-P+=("${acc2}${where}${n}")
-P+=("")
-kf ip; P+=("$KK $ip")
+# Facts in pairs, two columns: the left values padded to the longest of them,
+# the right keys in a column of their own.
 kver=$(uname -r); kver=${kver%-*}
-kf os; P+=("$KK ${PRETTY_NAME:-linux} ${dim}·${n} kernel ${acc2}${kver}${n}")
 cpus=$(nproc)
-kf host; P+=("$KK ${cpus} CPU · ${mem} GiB · up ${up}")
+osn=${PRETTY_NAME:-linux}
+L_K=(fqdn lab os host);  L_V=("$fqdn" "$lab" "$osn" "${cpus} CPU · ${mem} GiB")
+R_K=(ip hypervisor kernel uptime); R_V=("$ip" "$hvx" "$kver" "$up")
+L_C=("${b}" "" "" "");   R_C=("" "" "" "")
+lw=0; for v in "${L_V[@]}"; do [ "${#v}" -gt "$lw" ] && lw=${#v}; done; lw=$(( lw + 4 ))
+for ((i = 0; i < ${#L_K[@]}; i++)); do
+  kf "${L_K[i]}"; lk=$KK
+  printf -v pad '%*s' $(( lw - ${#L_V[i]} )) ''
+  printf -v rk '%s%-11s%s' "$acc" "${R_K[i]^^}" "$n"
+  P+=("$lk ${L_C[i]}${L_V[i]}${n}${pad}${rk} ${R_C[i]}${R_V[i]}${n}")
+done
+if [ -n "$built" ]; then kf built; P+=("$KK ${built}"); fi
+P+=("")
 # wrap_items KEY < "vislen<TAB>text" lines: one panel row per SW_W columns
 wrap_items() {
   local k=$1 line="" vis=0 ilen item
@@ -244,7 +277,6 @@ sw_cat() {
 sw_cat SHELL
 
 if [ -r "$VCACHE" ]; then
-  P+=("")
   for cat in "${CATS[@]}"; do
     [ "${cat%% *}" = SHELL ] || sw_cat "${cat%% *}"
   done
@@ -263,32 +295,62 @@ fi
 # ---------------------------------------------------------------- resources
 # CPU, memory and disks as bars (green < 85% <= yellow < 95% <= red), then
 # what runs on the machine: tmux and Claude Code sessions.
-mkbar() {
-  local p=$1 i fill
-  [ "$p" -gt 100 ] && p=100
-  BC=$G; [ "$p" -ge 85 ] && BC=$W; [ "$p" -ge 95 ] && BC=$C
-  fill=$(( (p + 5) / 10 )); BAR=""
-  for ((i = 0; i < 10; i++)); do if [ $i -lt "$fill" ]; then BAR+="█"; else BAR+="░"; fi; done
-}
 P+=("")
-# CPU: 1-minute load per core
-l100=${load1/./}; l100=$((10#$l100))
-mkbar $(( l100 / cpus )); printf -v pct '%4s' "$(( l100 / cpus ))%"
-kf cpu; P+=("$KK        ${BC}${BAR}${n} $pct  ${dim}load ${load1} / ${cpus} cores${n}")
-# memory: in use = MemTotal - MemAvailable
+# SYSTEM: CPU, MEM, SWAP (when there is any) and the partitions as vertical
+# gauges side by side -- VH rows of eighth blocks (8 steps a row) in the
+# theme's gradient, yellow / red over 85 / 95% -- with name and percentage
+# underneath and one line of detail per gauge to the right.
+VH=4; GW=4; CW=6        # gauge height, gauge width, column width
+l100=${load1/./}; l100=$((10#$l100)); cpu_p=$(( l100 / cpus )); [ $cpu_p -gt 100 ] && cpu_p=100
 while read -r mk mv _; do
-  case "$mk" in MemTotal:) mt=$mv ;; MemAvailable:) ma=$mv ;; esac
+  case "$mk" in MemTotal:) mt=$mv ;; MemAvailable:) ma=$mv ;; SwapTotal:) st_=$mv ;; SwapFree:) sf=$mv ;; esac
 done </proc/meminfo
-mu=$(( mt - ma )); mp=$(( mu * 100 / mt ))
-mkbar "$mp"; printf -v pct '%4s' "${mp}%"
-kf mem; P+=("$KK        ${BC}${BAR}${n} $pct  ${dim}$((mu * 10 / 1048576 / 10)).$((mu * 10 / 1048576 % 10))G/$((mt * 10 / 1048576 / 10)).$((mt * 10 / 1048576 % 10))G${n}")
-first=1
+mu=$(( mt - ma )); mem_p=$(( mu * 100 / mt ))
+gib() { printf -v GIB '%d.%dG' $(( $1 / 1048576 )) $(( $1 * 10 / 1048576 % 10 )); }
+gib "$mu"; mu_s=$GIB; gib "$mt"; mt_s=$GIB
+G_L=(CPU MEM); G_P=("$cpu_p" "$mem_p")
+G_T=("load ${load1} / ${cpus} cores" "${mu_s} / ${mt_s} usable")
+if [ "${st_:-0}" -gt 0 ]; then
+  su=$(( st_ - sf )); gib "$su"; su_s=$GIB; gib "$st_"
+  G_L+=(SWAP); G_P+=("$(( su * 100 / st_ ))"); G_T+=("${su_s} / ${GIB}")
+fi
 while read -r target size used pcent; do
-  mkbar "${pcent%\%}"
-  k=""; [ $first = 1 ] && k=disk; first=0
-  printf -v tgt '%-6s' "$target"; printf -v pct '%4s' "$pcent"
-  kf "$k"; P+=("$KK $tgt ${BC}${BAR}${n} $pct  ${dim}${used}/${size}${n}")
+  G_L+=("$target"); G_P+=("${pcent%\%}"); G_T+=("${used} / ${size}")
 done < <(df -h --output=target,size,used,pcent / /home /var 2>/dev/null | tail -n +2 | awk '!seen[$1]++')
+
+EIGHTHS=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+printf -v FULL '%*s' "$GW" ''; FULL=${FULL// /█}
+printf -v EMPTY '%*s' "$GW" ''; EMPTY=${EMPTY// /░}
+printf -v GAP '%*s' $(( CW - GW )) ''
+ng=${#G_P[@]}
+rows_=()
+for ((r = VH - 1; r >= 0; r--)); do
+  row=""
+  for ((g = 0; g < ng; g++)); do
+    p=${G_P[g]}; lvl=$(( p * VH * 8 / 100 ))
+    fg c $(( r1 + (r2 - r1) * r / (VH - 1) )) $(( g1 + (g2 - g1) * r / (VH - 1) )) $(( b1 + (b2 - b1) * r / (VH - 1) ))
+    [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
+    if [ $lvl -ge $(( (r + 1) * 8 )) ]; then cell="${c}${FULL}${n}"
+    elif [ $lvl -gt $(( r * 8 )) ]; then printf -v cell '%*s' "$GW" ''; cell="${c}${cell// /${EIGHTHS[lvl - r * 8]}}${n}"
+    else cell="${dim}${EMPTY}${n}"; fi
+    row+="${cell}${GAP}"
+  done
+  rows_+=("$row")
+done
+names=""; pcts=""
+for ((g = 0; g < ng; g++)); do
+  printf -v x "%-${CW}s" "${G_L[g]}"; names+="$x"
+  p=${G_P[g]}; c=$acc2; [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
+  printf -v x "%${GW}s" "${p}%"; pcts+="${c}${x}${n}${GAP}"
+done
+rows_+=("${acc}${names}${n}" "$pcts")
+# one detail line per gauge beside the rows
+for ((i = 0; i < ${#rows_[@]}; i++)); do
+  txt=""
+  if [ $i -lt "$ng" ]; then printf -v lab '%-6s' "${G_L[i]}"; txt="   ${acc}${lab}${n} ${dim}${G_T[i]}${n}"; fi
+  k=""; [ $i = 0 ] && k=system
+  kf "$k"; P+=("$KK ${rows_[i]}${txt}")
+done
 
 # tmux sessions (only when a server runs) and Claude Code sessions -- each
 # claude process with its directory, and the tmux session whose pane is its
