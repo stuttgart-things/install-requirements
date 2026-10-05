@@ -20,6 +20,8 @@ collection_install_parameter: --force
 ansible_collections: {}
 username: "sthings"
 install_motd: false
+# true: the sthings-motd script (files/sthings-motd); false: the inline `motd` below
+motd_script: true
 motd: |
   echo -e "\n";
   echo -e "\033[1;33m

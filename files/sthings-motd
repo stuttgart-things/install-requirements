@@ -1,0 +1,286 @@
+#!/usr/bin/env bash
+# sthings-motd -- login banner: the stuttgart-things mascot in a colour
+# gradient, next to what this machine is and what needs attention.
+# No sudo, no network (except dev-status's cached GitHub check).
+#
+# Colours: a random theme per call. STHINGS_MOTD_THEME=<name> pins one,
+# `sthings-motd --themes` lists them, NO_COLOR=1 switches colour off.
+
+# name  r1 g1 b1  r2 g2 b2   (gradient start -> end)
+THEMES=(
+  "sunset   255  94  98   255 195 113"
+  "ocean      0 198 255     0 114 255"
+  "aurora     0 242  96     5 117 230"
+  "purple   168  85 247   236  72 153"
+  "fire     255  65 108   255  75  43"
+  "mint      67 233 123    56 249 215"
+  "candy    252  92 125   106 130 251"
+  "gold     247 151  30   255 210   0"
+  "ice      142 197 252   224 195 252"
+  "forest    90 160  80   200 230 110"
+)
+
+ART=(
+"                               @@@@@"
+"                              ./@ . @. %#"
+"               %%% %% ...%%%%.@@ @@@..(%%% ..."
+"              %%%%%%%%%...%%% . @@@.. %%%... %%(%%%%"
+"              %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+"            .. %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ."
+"          .... %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% ...."
+"         %%%%% %%%%%%%(  .  *%%%%%  @@@ %%%%%%%%(%%%%%"
+"       %%%%%%%%%%%%%        @@%% @     @@@.%%%%%%%%%%%%"
+"      ....... %%%%% @        @ %,       @@ %%%%%%%%%%%%%"
+"     ........ %%%%% @.   @@  @ %@   @   @@ %%%%% ........"
+"    ........./%%%%% @@@    @@@ %@@     @@@ %%%%% ........."
+"   %%%%%%%%%%,%%%%%% @@@@@@@@@%%%@@@@@@@@ %%%%%% .,*(%%%%%%"
+"  %%%%%%%%%%%  %%%%%%%%%%#%%     %%%%%%%%%%%%%%% %%%%%%%%%%"
+" %%%%%%%%%%%     %%%%%%% %%%%%  %%%%% %%%%%%%%   %%%%%%%%%%%"
+"    ........        %%%%%%%%%%%%%%%%%%%%%%#      ........."
+"      ......   %%%%#     %%%%%%%%%%,  %%%        ....."
+"         ...       %%%%%%%%%%%%%%%%%%%%%%%        ..."
+"                  %%%%%%%%%%%%%%%%%%%%%%%%.%%"
+"                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+"                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+"                   %%% %%%%% %%%%/ %%%%% %"
+"                     %%%%%%%%% % %%%%%%%%"
+)
+WORDMARK=(
+"█▀ ▀█▀ █░█ ▀█▀ ▀█▀ █▀▀ ▄▀█ █▀█ ▀█▀ ▄▄ ▀█▀ █░█ █ █▄░█ █▀▀ █▀"
+"▄█ ░█░ █▄█ ░█░ ░█░ █▄█ █▀█ █▀▄ ░█░ ░░ ░█░ █▀█ █ █░▀█ █▄█ ▄█"
+)
+ART_W=62
+
+if [ "${1:-}" = "--themes" ]; then
+  for t in "${THEMES[@]}"; do
+    read -r name r1 g1 b1 r2 g2 b2 <<<"$t"
+    printf '\033[38;2;%s;%s;%sm████\033[38;2;%s;%s;%sm████\033[0m %s\n' "$r1" "$g1" "$b1" "$r2" "$g2" "$b2" "$name"
+  done
+  exit 0
+fi
+
+# ---------------------------------------------------------------- versions
+# Asking every tool for its version takes ~3 s (k9s, terraform, crossplane,
+# kcl ~0.4 s each), far too slow for a banner. So the banner only READS a
+# cache; `--refresh-versions` writes it, started in the background when the
+# cache is older than an hour. The very first terminal shows no versions yet.
+# Category -> tools, in display order. Only what is installed is shown, so
+# the list can be long. Add a tool here; give it VARGS below unless
+# `<tool> --version` is its version call.
+CATS=(
+  "LANG  python3 go node npm pip3 uv"
+  "CNTR  docker podman nerdctl buildctl skopeo dagger"
+  "K8S   kubectl helm helmfile kind k9s kustomize kubectl-slice kubeconform stern cilium vcluster argocd flux crossplane xpdig tkn velero"
+  "IAC   terraform tofu packer ansible ansible-lint kcl govc machineshop"
+  "SEC   sops age vault vals cosign trivy"
+  "TOOLS git gh glab task chezmoi pre-commit semantic-release goreleaser ko golangci-lint gum jq yq mc hugo vhs claude"
+  "SHELL tmux starship fzf zoxide atuin"
+)
+# Non-default version calls. CLIENT-ONLY wherever plain `version` would
+# contact a cluster or server (kubectl, cilium, argocd, velero, tkn, flux,
+# crossplane, docker's `version`).
+declare -A VARGS=(
+  [go]="version" [kubectl]="version --client" [helm]="version --short"
+  [kind]="version" [k9s]="version --short" [kustomize]="version"
+  [kubeconform]="-v" [cilium]="version --client" [argocd]="version --client --short"
+  [flux]="version --client" [crossplane]="version --client" [xpdig]="version"
+  [tkn]="version --component client" [velero]="version --client-only"
+  [terraform]="version" [packer]="version" [govc]="version" [machineshop]="version"
+  [vault]="version" [vals]="version" [cosign]="version" [dagger]="version"
+  [ko]="version" [hugo]="version" [tmux]="-V"
+)
+VCACHE="${XDG_CACHE_HOME:-$HOME/.cache}/sthings-motd/versions"
+if [ "${1:-}" = "--refresh-versions" ]; then
+  export CHECKPOINT_DISABLE=1 PATH="$PATH:/usr/local/go/bin:$HOME/.local/bin"
+  mkdir -p "${VCACHE%/*}"
+  lock="${VCACHE%/*}/.lock"
+  mkdir "$lock" 2>/dev/null || exit 0
+  trap 'rmdir "$lock"' EXIT
+  tmp=$(mktemp "${VCACHE}.XXXX"); work=$(mktemp -d)
+  # All probes in parallel (one slow start each adds up to ~20 s in series),
+  # then assembled in CATS order.
+  n_=0
+  for cat in "${CATS[@]}"; do
+    read -r ckey tools <<<"$cat"
+    for tool in $tools; do
+      n_=$((n_ + 1))
+      command -v "$tool" >/dev/null 2>&1 || continue
+      read -r -a args <<<"${VARGS[$tool]:---version}"
+      ( v=$(timeout 15 "$tool" "${args[@]}" </dev/null 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+        [ -n "$v" ] && printf '%s %s %s\n' "$ckey" "${tool%3}" "$v" >"$work/$(printf '%03d' "$n_")" ) &
+    done
+  done
+  wait
+  cat "$work"/* >"$tmp" 2>/dev/null
+  rm -rf "$work"
+  mv "$tmp" "$VCACHE"
+  exit 0
+fi
+if [ -z "$(find "$VCACHE" -mmin -60 2>/dev/null)" ]; then
+  (setsid "$0" --refresh-versions </dev/null >/dev/null 2>&1 &)
+fi
+
+theme=""
+for t in "${THEMES[@]}"; do [ "${t%% *}" = "${STHINGS_MOTD_THEME:-}" ] && theme=$t; done
+[ -z "$theme" ] && theme=${THEMES[RANDOM % ${#THEMES[@]}]}
+read -r _ r1 g1 b1 r2 g2 b2 <<<"$theme"
+
+truecolor=0
+case "${COLORTERM:-}" in truecolor|24bit) truecolor=1 ;; esac
+case "${TERM_PROGRAM:-}" in vscode|iTerm.app|WezTerm|ghostty) truecolor=1 ;; esac
+
+# fg VAR r g b -> escape into VAR (printf -v, no subshell per character)
+fg() {
+  if [ -n "${NO_COLOR:-}" ]; then printf -v "$1" ''; return; fi
+  if [ "$truecolor" = 1 ]; then
+    printf -v "$1" '\033[38;2;%d;%d;%dm' "$2" "$3" "$4"
+  else
+    printf -v "$1" '\033[38;5;%dm' $((16 + 36 * ($2 * 5 / 255) + 6 * ($3 * 5 / 255) + ($4 * 5 / 255)))
+  fi
+}
+# grad VAR text row rows -> text in a diagonal gradient (top-left -> bottom-right)
+grad() {
+  local -n _out=$1; local text=$2 row=$3 rows=$4 i ch c t len=${#2} last=-1
+  _out=""
+  for ((i = 0; i < len; i++)); do
+    ch=${text:i:1}
+    if [ "$ch" = " " ]; then _out+=" "; continue; fi
+    t=$(( (i * 1000 / ART_W + row * 1000 / rows) / 2 ))
+    if [ $((t / 25)) != "$last" ]; then
+      last=$((t / 25))
+      fg c $((r1 + (r2 - r1) * t / 1000)) $((g1 + (g2 - g1) * t / 1000)) $((b1 + (b2 - b1) * t / 1000))
+      _out+=$c
+    fi
+    _out+=$ch
+  done
+}
+
+if [ -n "${NO_COLOR:-}" ]; then n="" b="" dim="" W="" C="" G=""; else
+  n=$'\033[0m'; b=$'\033[1m'; dim=$'\033[2m'
+  W=$'\033[1;33m'; C=$'\033[1;31m'; G=$'\033[1;32m'
+fi
+acc="" acc2=""
+fg acc "$r1" "$g1" "$b1"
+fg acc2 "$r2" "$g2" "$b2"
+
+# ---------------------------------------------------------------- facts
+fqdn=$(hostname -f 2>/dev/null || hostname)
+case "$fqdn" in
+  *.labul.sva.de) lab=LabUL ;;
+  *.labda.sva.de) lab=LabDA ;;
+  *) lab=${fqdn#*.} ;;
+esac
+virt=$(systemd-detect-virt 2>/dev/null)
+case "$virt" in vmware) hv=vSphere ;; kvm|qemu) hv=Proxmox ;; none) hv=bare-metal ;; *) hv=$virt ;; esac
+product=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+where="$lab · $hv"
+case "$product" in crossplane-*) where+=" · ${product}" ;; esac
+ip=$(hostname -I 2>/dev/null | cut -d' ' -f1)
+# shellcheck disable=SC1091
+. /etc/os-release 2>/dev/null
+mem=$(awk '/MemTotal/{printf "%.0f", $2/1048576}' /proc/meminfo)
+up=$(uptime -p | sed 's/^up //; s/, [0-9]* minutes\?$//; s/ weeks\?/w/; s/ days\?/d/; s/ hours\?/h/; s/ minutes\?/m/; s/,//g')
+read -r load1 _ < /proc/loadavg
+
+# ---------------------------------------------------------------- width
+# From the terminal itself: in $(...) tput sees a pipe and says 80.
+cols=$( { stty size </dev/tty; } 2>/dev/null | cut -d' ' -f2)
+[ -n "$cols" ] || cols=${COLUMNS:-80}
+# Side by side when the panel still gets 60 columns next to the mascot
+# (art + 4 gap + 8 key); the software lines wrap to what is left, max 78.
+side=0; room=$(( cols - ART_W - 4 - 8 ))
+if [ $room -ge 60 ]; then side=1; SW_W=$(( room < 78 ? room : 78 ));
+else SW_W=$(( cols - 10 < 78 ? cols - 10 : 78 )); fi
+
+# ---------------------------------------------------------------- panel
+P=()
+key() { printf '%s%-7s%s' "$acc" "${1^^}" "$n"; }
+P+=("${b}${acc}${fqdn}${n}")
+P+=("${acc2}${where}${n}")
+P+=("")
+P+=("$(key ip) $ip")
+P+=("$(key os) ${PRETTY_NAME:-linux} ${dim}· $(uname -r | cut -d- -f1-2)${n}")
+P+=("$(key host) $(nproc) CPU · ${mem} GiB · load ${load1} · up ${up}")
+# software of one category (key KEY), wrapped at SW_W visible characters
+sw_cat() {
+  local ckey=$1 k=$1 line="" vis=0 c name ver item ilen
+  [ -r "$VCACHE" ] || return 0
+  while read -r c name ver; do
+    [ "$c" = "$ckey" ] || continue
+    item="${name} ${acc2}${ver}${n}"; ilen=$(( ${#name} + 1 + ${#ver} ))
+    if [ $vis -gt 0 ] && [ $((vis + 3 + ilen)) -gt "$SW_W" ]; then
+      P+=("$(key "$k") $line"); k=""; line=""; vis=0
+    fi
+    if [ $vis -gt 0 ]; then line+=" ${dim}·${n} "; vis=$((vis + 3)); fi
+    line+=$item; vis=$((vis + ilen))
+  done <"$VCACHE"
+  [ $vis -gt 0 ] && P+=("$(key "$k") $line")
+  return 0
+}
+sw_cat SHELL
+first=1
+while read -r target size used pcent; do
+  p=${pcent%\%}; c=$G; [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
+  fill=$(( (p + 5) / 10 )); bar=""
+  for ((i = 0; i < 10; i++)); do if [ $i -lt $fill ]; then bar+="█"; else bar+="░"; fi; done
+  k=""; [ $first = 1 ] && k=disk; first=0
+  P+=("$(key "$k") $(printf '%-6s' "$target") ${c}${bar}${n} $(printf '%4s' "$pcent")  ${dim}${used}/${size}${n}")
+done < <(df -h --output=target,size,used,pcent / /home /var 2>/dev/null | tail -n +2 | awk '!seen[$1]++')
+
+if [ -r "$VCACHE" ]; then
+  P+=("")
+  for cat in "${CATS[@]}"; do
+    [ "${cat%% *}" = SHELL ] || sw_cat "${cat%% *}"
+  done
+fi
+
+if command -v dev-status >/dev/null 2>&1; then
+  P+=("")
+  first=1
+  while IFS=$'\t' read -r state check text; do
+    case "$state" in ok) s="${G}✓${n}" ;; bad) s="${C}✗${n}" ;; *) s="${W}!${n}" ;; esac
+    k=""; [ $first = 1 ] && k=check; first=0
+    P+=("$(key "$k") $s $(printf '%-5s' "$check") $text")
+  done < <(dev-status --raw 2>/dev/null)
+fi
+
+warn=()
+[ -f /var/run/reboot-required ] && warn+=("reboot required")
+f=$(systemctl --failed --no-legend 2>/dev/null | wc -l)
+[ "$f" -gt 0 ] && warn+=("$f failed unit(s): systemctl --failed")
+u=$(grep -oE '^[0-9]+ updates' /var/lib/update-notifier/updates-available 2>/dev/null | head -1)
+[ -n "$u" ] && warn+=("$u")
+if [ ${#warn[@]} -gt 0 ]; then
+  P+=("")
+  msg=$(printf '%s · ' "${warn[@]}")
+  P+=("${W}!      ${msg% · }${n}")
+fi
+
+# ---------------------------------------------------------------- layout
+# Left column: the mascot, a blank line, the wordmark -- one gradient over all.
+LEFT=("${ART[@]}" "" "${WORDMARK[@]}")
+rows=${#LEFT[@]}
+if [ "$side" = 1 ]; then
+  # side by side: the panel starts level with the mascot's head
+  off=2
+  total=$(( rows > ${#P[@]} + off ? rows : ${#P[@]} + off ))
+  for ((r = 0; r < total; r++)); do
+    line=""; a=${LEFT[r]:-}
+    [ -n "$a" ] && grad line "$a" "$r" "$rows"
+    pad=$(( ART_W - ${#a} ))
+    pi=$(( r - off ))
+    if [ $pi -ge 0 ] && [ $pi -lt ${#P[@]} ]; then
+      printf ' %s%s%*s   %s\n' "$line" "$n" "$pad" "" "${P[pi]}"
+    else
+      printf ' %s%s\n' "$line" "$n"
+    fi
+  done
+else
+  for ((r = 0; r < rows; r++)); do
+    line=""; [ -n "${LEFT[r]}" ] && grad line "${LEFT[r]}" "$r" "$rows"
+    printf ' %s%s\n' "$line" "$n"
+  done
+  echo
+  for l in "${P[@]}"; do printf ' %s\n' "$l"; done
+fi
+echo
