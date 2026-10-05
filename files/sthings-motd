@@ -155,8 +155,8 @@ grad() {
   done
 }
 
-if [ -n "${NO_COLOR:-}" ]; then n="" b="" dim="" W="" C="" G=""; else
-  n=$'\033[0m'; b=$'\033[1m'; dim=$'\033[2m'
+if [ -n "${NO_COLOR:-}" ]; then n="" dim="" W="" C="" G=""; else
+  n=$'\033[0m'; dim=$'\033[2m'
   W=$'\033[1;33m'; C=$'\033[1;31m'; G=$'\033[1;32m'
 fi
 acc="" acc2=""
@@ -178,18 +178,22 @@ hvx=$hv
 # (/etc/sthings/build.yaml: source, order, use case, lab, management cluster,
 # date). Without one, a Crossplane-built Proxmox VM still says so through the
 # SMBIOS product its composition sets.
-built=""
+b_how=""; b_mgmt=""
 if [ -r /etc/sthings/build.yaml ]; then
   declare -A bm=()
   while IFS=': ' read -r bk bv; do
     case "$bk" in ''|\#*) ;; *) bm[$bk]=$bv ;; esac
   done </etc/sthings/build.yaml
-  for bk in source use_case order management_cluster built; do
-    [ -n "${bm[$bk]:-}" ] && built+="${built:+ · }${bm[$bk]}"
-  done
-  [ -n "${bm[management_cluster]:-}" ] && built=${built/" · ${bm[management_cluster]}"/" · via ${bm[management_cluster]}"}
+  # BUILD via <method>; markers from before the method field: their source
+  bmeth=${bm[method]:-${bm[source]:-unknown}}
+  case "$bmeth" in terraform-dagger) bmeth="terraform (dagger)" ;; esac
+  b_how="via ${bmeth}"
+  case "${bm[management_lab]:-}" in labda) ml=LabDA ;; labul) ml=LabUL ;; *) ml=${bm[management_lab]:-} ;; esac
+  b_mgmt="${bm[management_cluster]:-}"
+  inner="${ml}${ml:+${bm[built]:+, }}${bm[built]:-}"
+  [ -n "$inner" ] && b_mgmt+=" (${inner})"
 fi
-case "$product" in crossplane-*) [ -z "$built" ] && built="${product} (no build marker)" ;; esac
+case "$product" in crossplane-*) [ -z "$b_how" ] && { b_how="via ${product}"; b_mgmt="(no build marker)"; } ;; esac
 ip=$(hostname -I 2>/dev/null | cut -d' ' -f1)
 # shellcheck disable=SC1091
 . /etc/os-release 2>/dev/null
@@ -227,7 +231,11 @@ cpus=$(nproc)
 osn=${PRETTY_NAME:-linux}
 L_K=(fqdn lab os host);  L_V=("$fqdn" "$lab" "$osn" "${cpus} CPU · ${mem} GiB")
 R_K=(ip hypervisor kernel uptime); R_V=("$ip" "$hvx" "$kver" "$up")
-L_C=("${b}" "" "" "");   R_C=("" "" "" "")
+L_C=("" "" "" "");   R_C=("" "" "" "")
+if [ -n "$b_how" ]; then
+  L_K+=(build); L_V+=("$b_how"); L_C+=("")
+  R_K+=(management); R_V+=("$b_mgmt"); R_C+=("")
+fi
 lw=0; for v in "${L_V[@]}"; do [ "${#v}" -gt "$lw" ] && lw=${#v}; done; lw=$(( lw + 4 ))
 for ((i = 0; i < ${#L_K[@]}; i++)); do
   kf "${L_K[i]}"; lk=$KK
@@ -235,7 +243,6 @@ for ((i = 0; i < ${#L_K[@]}; i++)); do
   printf -v rk '%s%-11s%s' "$acc" "${R_K[i]^^}" "$n"
   P+=("$lk ${L_C[i]}${L_V[i]}${n}${pad}${rk} ${R_C[i]}${R_V[i]}${n}")
 done
-if [ -n "$built" ]; then kf built; P+=("$KK ${built}"); fi
 P+=("")
 # wrap_items KEY < "vislen<TAB>text" lines: one panel row per SW_W columns
 wrap_items() {
@@ -352,6 +359,9 @@ for ((i = 0; i < ${#rows_[@]}; i++)); do
   kf "$k"; P+=("$KK ${rows_[i]}${txt}")
 done
 
+# a thin rule between the gauges and the sessions
+printf -v RULE '%*s' $(( CW * ng + 30 )) ''; RULE=${RULE// /─}
+kf ""; P+=("$KK ${dim}${RULE}${n}")
 # tmux sessions (only when a server runs) and Claude Code sessions -- each
 # claude process with its directory, and the tmux session whose pane is its
 # terminal; no terminal means a background session.
