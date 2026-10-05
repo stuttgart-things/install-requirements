@@ -1,12 +1,26 @@
 ---
+# The banner: by default the sthings-motd script (mascot in a colour gradient,
+# host/lab/hypervisor, disk bars, installed tool versions, dev-status when the
+# VM has it). motd_script: false keeps the old inline `motd` text instead.
+- name: Install sthings-motd
+  ansible.builtin.copy:
+    src: sthings-motd
+    dest: /usr/local/bin/sthings-motd
+    mode: "0755"
+  when: motd_script | bool
+
 - name: Install message of the day
   ansible.builtin.blockinfile:
     path: "/home/{{ username }}/.bashrc"
-    # Only on an interactive login shell on a terminal, outside tmux: the
-    # banner used to run on EVERY interactive bash -- each tmux pane, each
-    # VS Code terminal, every `bash -ic` -- and its output broke scripts that
+    # In every new interactive terminal -- login or not, VS Code's terminals
+    # are not -- but not in a tmux pane and not for `bash -c` (or -ic): the
+    # banner used to run on EVERY interactive bash and broke scripts that
     # parse a command's stdout (stuttgart-things/stuttgart-things#3439).
     block: |
-      if [ -t 1 ] && [ -z "$TMUX" ] && shopt -q login_shell; then
+      if [ -t 1 ] && [ -z "$TMUX" ] && [ -z "${BASH_EXECUTION_STRING:-}" ]; then
+      {% if motd_script | bool %}
+        sthings-motd
+      {% else %}
       {{ motd }}
+      {% endif %}
       fi
