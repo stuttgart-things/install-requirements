@@ -194,13 +194,35 @@ else SW_W=$(( cols - 10 < 78 ? cols - 10 : 78 )); fi
 
 # ---------------------------------------------------------------- panel
 P=()
-key() { printf '%s%-7s%s' "$acc" "${1^^}" "$n"; }
+# kf KEY -> $KK, the coloured, padded key (printf -v: no subshell per row)
+kf() { printf -v KK '%s%-7s%s' "$acc" "${1^^}" "$n"; }
 P+=("${b}${acc}${fqdn}${n}")
 P+=("${acc2}${where}${n}")
 P+=("")
-P+=("$(key ip) $ip")
-P+=("$(key os) ${PRETTY_NAME:-linux} ${dim}· $(uname -r | cut -d- -f1-2)${n}")
-P+=("$(key host) $(nproc) CPU · ${mem} GiB · load ${load1} · up ${up}")
+kf ip; P+=("$KK $ip")
+kf os; P+=("$KK ${PRETTY_NAME:-linux} ${dim}· $(uname -r | cut -d- -f1-2)${n}")
+kf host; P+=("$KK $(nproc) CPU · ${mem} GiB · load ${load1} · up ${up}")
+# wrap_items KEY < "vislen<TAB>text" lines: one panel row per SW_W columns
+wrap_items() {
+  local k=$1 line="" vis=0 ilen item
+  while IFS=$'\t' read -r ilen item; do
+    if [ $vis -gt 0 ] && [ $((vis + 3 + ilen)) -gt "$SW_W" ]; then
+      kf "$k"; P+=("$KK $line"); k=""; line=""; vis=0
+    fi
+    if [ $vis -gt 0 ]; then line+=" ${dim}·${n} "; vis=$((vis + 3)); fi
+    line+=$item; vis=$((vis + ilen))
+  done
+  if [ $vis -gt 0 ]; then kf "$k"; P+=("$KK $line"); fi
+  return 0
+}
+# seconds -> 1d14h / 5h21m / 13m
+dur() {
+  local t=$1
+  if [ "$t" -ge 86400 ]; then DUR="$((t / 86400))d$((t % 86400 / 3600))h"
+  elif [ "$t" -ge 3600 ]; then DUR="$((t / 3600))h$((t % 3600 / 60))m"
+  else DUR="$((t / 60))m"; fi
+}
+
 # software of one category (key KEY), wrapped at SW_W visible characters
 sw_cat() {
   local ckey=$1 k=$1 line="" vis=0 c name ver item ilen
@@ -209,12 +231,12 @@ sw_cat() {
     [ "$c" = "$ckey" ] || continue
     item="${name} ${acc2}${ver}${n}"; ilen=$(( ${#name} + 1 + ${#ver} ))
     if [ $vis -gt 0 ] && [ $((vis + 3 + ilen)) -gt "$SW_W" ]; then
-      P+=("$(key "$k") $line"); k=""; line=""; vis=0
+      kf "$k"; P+=("$KK $line"); k=""; line=""; vis=0
     fi
     if [ $vis -gt 0 ]; then line+=" ${dim}·${n} "; vis=$((vis + 3)); fi
     line+=$item; vis=$((vis + ilen))
   done <"$VCACHE"
-  [ $vis -gt 0 ] && P+=("$(key "$k") $line")
+  if [ $vis -gt 0 ]; then kf "$k"; P+=("$KK $line"); fi
   return 0
 }
 sw_cat SHELL
@@ -224,8 +246,52 @@ while read -r target size used pcent; do
   fill=$(( (p + 5) / 10 )); bar=""
   for ((i = 0; i < 10; i++)); do if [ $i -lt $fill ]; then bar+="█"; else bar+="░"; fi; done
   k=""; [ $first = 1 ] && k=disk; first=0
-  P+=("$(key "$k") $(printf '%-6s' "$target") ${c}${bar}${n} $(printf '%4s' "$pcent")  ${dim}${used}/${size}${n}")
+  printf -v tgt '%-6s' "$target"; printf -v pct '%4s' "$pcent"
+  kf "$k"; P+=("$KK $tgt ${c}${bar}${n} $pct  ${dim}${used}/${size}${n}")
 done < <(df -h --output=target,size,used,pcent / /home /var 2>/dev/null | tail -n +2 | awk '!seen[$1]++')
+
+# tmux sessions (only when a server runs) and Claude Code sessions -- each
+# claude process with its directory, and the tmux session whose pane is its
+# terminal; no terminal means a background session.
+declare -A pane_sess=()
+tmux_items() {
+  local tname twin tatt tpath att atl
+  while IFS='|' read -r tname twin tatt tpath; do
+    tpath=${tpath/#$HOME/\~}; att=""; atl=0
+    [ "$tatt" != 0 ] && { att=" · ${G}attached${n}"; atl=11; }
+    printf '%d\t%s\n' $(( ${#tname} + 3 + ${#twin} + 4 + 3 + ${#tpath} + atl )) "${acc2}${tname}${n} · ${twin} win · ${dim}${tpath}${n}${att}"
+  done <<<"$1"
+}
+claude_items() {
+  # Straight from /proc: pgrep + ps per session cost ~50-80 ms each on a busy
+  # VM. stat field 7 is tty_nr (pts = major 136..143), field 22 the start time
+  # in clock ticks since boot.
+  local f pid cdir st tty_nr ctty secs w up clk
+  read -r up _ </proc/uptime; up=${up%.*}
+  clk=100   # CLK_TCK is 100 on every Linux we run
+  while read -r f; do
+    pid=${f#/proc/}; pid=${pid%/comm}
+    [ -O "/proc/$pid" ] || continue
+    cdir=$(readlink "/proc/$pid/cwd" 2>/dev/null)
+    if [ "$cdir" = "$HOME" ]; then cdir="~"; else cdir=${cdir##*/}; fi
+    read -r -a st <"/proc/$pid/stat" 2>/dev/null || continue
+    tty_nr=${st[6]}; ctty=""
+    if [ $(( tty_nr >> 8 )) -ge 136 ] && [ $(( tty_nr >> 8 )) -le 143 ]; then
+      ctty="pts/$(( (tty_nr & 0xff) | ((tty_nr >> 12) & 0xfff00) + ((tty_nr >> 8) - 136) * 256 ))"
+    fi
+    secs=$(( up - st[21] / clk ))
+    if [ -z "$ctty" ]; then w="background"
+    elif [ -n "${pane_sess[/dev/$ctty]:-}" ]; then w="tmux ${pane_sess[/dev/$ctty]}"
+    else w=$ctty; fi
+    dur "$secs"; w+=", $DUR"
+    printf '%d\t%s\n' $(( ${#cdir} + 3 + ${#w} )) "${acc2}${cdir}${n} ${dim}(${w})${n}"
+  done < <(grep -lx claude /proc/[0-9]*/comm 2>/dev/null)
+}
+if tsess=$(tmux ls -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_path}' 2>/dev/null); then
+  wrap_items tmux < <(tmux_items "$tsess")
+  while read -r ptty psess; do pane_sess[$ptty]=$psess; done < <(tmux list-panes -a -F '#{pane_tty} #{session_name}' 2>/dev/null)
+fi
+wrap_items claude < <(claude_items)
 
 if [ -r "$VCACHE" ]; then
   P+=("")
@@ -240,7 +306,7 @@ if command -v dev-status >/dev/null 2>&1; then
   while IFS=$'\t' read -r state check text; do
     case "$state" in ok) s="${G}✓${n}" ;; bad) s="${C}✗${n}" ;; *) s="${W}!${n}" ;; esac
     k=""; [ $first = 1 ] && k=check; first=0
-    P+=("$(key "$k") $s $(printf '%-5s' "$check") $text")
+    kf "$k"; P+=("$KK $s $(printf '%-5s' "$check") $text")
   done < <(dev-status --raw 2>/dev/null)
 fi
 
