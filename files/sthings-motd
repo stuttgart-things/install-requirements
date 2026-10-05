@@ -200,8 +200,10 @@ P+=("${b}${acc}${fqdn}${n}")
 P+=("${acc2}${where}${n}")
 P+=("")
 kf ip; P+=("$KK $ip")
-kf os; P+=("$KK ${PRETTY_NAME:-linux} ${dim}· $(uname -r | cut -d- -f1-2)${n}")
-kf host; P+=("$KK $(nproc) CPU · ${mem} GiB · load ${load1} · up ${up}")
+kver=$(uname -r); kver=${kver%-*}
+kf os; P+=("$KK ${PRETTY_NAME:-linux} ${dim}·${n} kernel ${acc2}${kver}${n}")
+cpus=$(nproc)
+kf host; P+=("$KK ${cpus} CPU · ${mem} GiB · up ${up}")
 # wrap_items KEY < "vislen<TAB>text" lines: one panel row per SW_W columns
 wrap_items() {
   local k=$1 line="" vis=0 ilen item
@@ -240,14 +242,52 @@ sw_cat() {
   return 0
 }
 sw_cat SHELL
+
+if [ -r "$VCACHE" ]; then
+  P+=("")
+  for cat in "${CATS[@]}"; do
+    [ "${cat%% *}" = SHELL ] || sw_cat "${cat%% *}"
+  done
+fi
+
+if command -v dev-status >/dev/null 2>&1; then
+  P+=("")
+  first=1
+  while IFS=$'\t' read -r state check text; do
+    case "$state" in ok) s="${G}✓${n}" ;; bad) s="${C}✗${n}" ;; *) s="${W}!${n}" ;; esac
+    k=""; [ $first = 1 ] && k=check; first=0
+    kf "$k"; P+=("$KK $s $(printf '%-5s' "$check") $text")
+  done < <(dev-status --raw 2>/dev/null)
+fi
+
+# ---------------------------------------------------------------- resources
+# CPU, memory and disks as bars (green < 85% <= yellow < 95% <= red), then
+# what runs on the machine: tmux and Claude Code sessions.
+mkbar() {
+  local p=$1 i fill
+  [ "$p" -gt 100 ] && p=100
+  BC=$G; [ "$p" -ge 85 ] && BC=$W; [ "$p" -ge 95 ] && BC=$C
+  fill=$(( (p + 5) / 10 )); BAR=""
+  for ((i = 0; i < 10; i++)); do if [ $i -lt "$fill" ]; then BAR+="█"; else BAR+="░"; fi; done
+}
+P+=("")
+# CPU: 1-minute load per core
+l100=${load1/./}; l100=$((10#$l100))
+mkbar $(( l100 / cpus )); printf -v pct '%4s' "$(( l100 / cpus ))%"
+kf cpu; P+=("$KK        ${BC}${BAR}${n} $pct  ${dim}load ${load1} / ${cpus} cores${n}")
+# memory: in use = MemTotal - MemAvailable
+while read -r mk mv _; do
+  case "$mk" in MemTotal:) mt=$mv ;; MemAvailable:) ma=$mv ;; esac
+done </proc/meminfo
+mu=$(( mt - ma )); mp=$(( mu * 100 / mt ))
+mkbar "$mp"; printf -v pct '%4s' "${mp}%"
+kf mem; P+=("$KK        ${BC}${BAR}${n} $pct  ${dim}$((mu * 10 / 1048576 / 10)).$((mu * 10 / 1048576 % 10))G/$((mt * 10 / 1048576 / 10)).$((mt * 10 / 1048576 % 10))G${n}")
 first=1
 while read -r target size used pcent; do
-  p=${pcent%\%}; c=$G; [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
-  fill=$(( (p + 5) / 10 )); bar=""
-  for ((i = 0; i < 10; i++)); do if [ $i -lt $fill ]; then bar+="█"; else bar+="░"; fi; done
+  mkbar "${pcent%\%}"
   k=""; [ $first = 1 ] && k=disk; first=0
   printf -v tgt '%-6s' "$target"; printf -v pct '%4s' "$pcent"
-  kf "$k"; P+=("$KK $tgt ${c}${bar}${n} $pct  ${dim}${used}/${size}${n}")
+  kf "$k"; P+=("$KK $tgt ${BC}${BAR}${n} $pct  ${dim}${used}/${size}${n}")
 done < <(df -h --output=target,size,used,pcent / /home /var 2>/dev/null | tail -n +2 | awk '!seen[$1]++')
 
 # tmux sessions (only when a server runs) and Claude Code sessions -- each
@@ -292,23 +332,6 @@ if tsess=$(tmux ls -F '#{session_name}|#{session_windows}|#{session_attached}|#{
   while read -r ptty psess; do pane_sess[$ptty]=$psess; done < <(tmux list-panes -a -F '#{pane_tty} #{session_name}' 2>/dev/null)
 fi
 wrap_items claude < <(claude_items)
-
-if [ -r "$VCACHE" ]; then
-  P+=("")
-  for cat in "${CATS[@]}"; do
-    [ "${cat%% *}" = SHELL ] || sw_cat "${cat%% *}"
-  done
-fi
-
-if command -v dev-status >/dev/null 2>&1; then
-  P+=("")
-  first=1
-  while IFS=$'\t' read -r state check text; do
-    case "$state" in ok) s="${G}✓${n}" ;; bad) s="${C}✗${n}" ;; *) s="${W}!${n}" ;; esac
-    k=""; [ $first = 1 ] && k=check; first=0
-    kf "$k"; P+=("$KK $s $(printf '%-5s' "$check") $text")
-  done < <(dev-status --raw 2>/dev/null)
-fi
 
 warn=()
 [ -f /var/run/reboot-required ] && warn+=("reboot required")
