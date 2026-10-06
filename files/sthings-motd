@@ -300,12 +300,12 @@ if command -v dev-status >/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------- resources
-# CPU, memory and disks as bars (green < 85% <= yellow < 95% <= red), then
+# CPU, memory and disks as bars (green < 80% <= yellow < 90% <= red), then
 # what runs on the machine: tmux and Claude Code sessions.
 P+=("")
 # SYSTEM: CPU, MEM, SWAP (when there is any) and the partitions as vertical
 # gauges side by side -- VH rows of eighth blocks (8 steps a row) in the
-# theme's gradient, yellow / red over 85 / 95% -- with name and percentage
+# theme's gradient, yellow / red over 80 / 90% -- with name and percentage
 # underneath and one line of detail per gauge to the right.
 VH=4; GW=4; CW=6        # gauge height, gauge width, column width
 l100=${load1/./}; l100=$((10#$l100)); cpu_p=$(( l100 / cpus )); [ $cpu_p -gt 100 ] && cpu_p=100
@@ -336,7 +336,7 @@ for ((r = VH - 1; r >= 0; r--)); do
   for ((g = 0; g < ng; g++)); do
     p=${G_P[g]}; lvl=$(( p * VH * 8 / 100 ))
     fg c $(( r1 + (r2 - r1) * r / (VH - 1) )) $(( g1 + (g2 - g1) * r / (VH - 1) )) $(( b1 + (b2 - b1) * r / (VH - 1) ))
-    [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
+    [ "$p" -ge 80 ] && c=$W; [ "$p" -ge 90 ] && c=$C
     if [ $lvl -ge $(( (r + 1) * 8 )) ]; then cell="${c}${FULL}${n}"
     elif [ $lvl -gt $(( r * 8 )) ]; then printf -v cell '%*s' "$GW" ''; cell="${c}${cell// /${EIGHTHS[lvl - r * 8]}}${n}"
     else cell="${dim}${EMPTY}${n}"; fi
@@ -347,7 +347,7 @@ done
 names=""; pcts=""
 for ((g = 0; g < ng; g++)); do
   printf -v x "%-${CW}s" "${G_L[g]}"; names+="$x"
-  p=${G_P[g]}; c=$acc2; [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
+  p=${G_P[g]}; c=$acc2; [ "$p" -ge 80 ] && c=$W; [ "$p" -ge 90 ] && c=$C
   printf -v x "%${GW}s" "${p}%"; pcts+="${c}${x}${n}${GAP}"
 done
 rows_+=("${acc}${names}${n}" "$pcts")
