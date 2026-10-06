@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+shopt -s extglob   # +([0-9;]) when measuring coloured rows
 # sthings-motd -- login banner: the stuttgart-things mascot in a colour
 # gradient, next to what this machine is and what needs attention.
 # No sudo, no network (except dev-status's cached GitHub check).
@@ -219,6 +220,9 @@ cols=$( { stty size </dev/tty; } 2>/dev/null | cut -d' ' -f2)
 side=0; room=$(( cols - ART_W - 4 - 8 ))
 if [ $room -ge 60 ]; then side=1; SW_W=$(( room < 78 ? room : 78 ));
 else SW_W=$(( cols - 10 < 78 ? cols - 10 : 78 )); fi
+# Wide terminals (>= 160 columns): CHECK and SYSTEM go to the LEFT, under the
+# wordmark, so the two columns end at about the same height.
+balance=0; [ "$side" = 1 ] && [ "$cols" -ge 160 ] && balance=1
 
 # ---------------------------------------------------------------- panel
 P=()
@@ -289,6 +293,7 @@ if [ -r "$VCACHE" ]; then
   done
 fi
 
+pstart=${#P[@]}
 if command -v dev-status >/dev/null 2>&1; then
   P+=("")
   first=1
@@ -359,6 +364,11 @@ for ((i = 0; i < ${#rows_[@]}; i++)); do
   kf "$k"; P+=("$KK ${rows_[i]}${txt}")
 done
 
+LX=()
+if [ "$balance" = 1 ]; then
+  LX=("${P[@]:pstart}")
+  P=("${P[@]:0:pstart}")
+fi
 # a thin rule between the gauges and the sessions
 printf -v RULE '%*s' $(( CW * ng + 30 )) ''; RULE=${RULE// /─}
 kf ""; P+=("$KK ${dim}${RULE}${n}")
@@ -431,6 +441,12 @@ else
   wrap_items claude < <(claude_items)
 fi
 
+# where the global tasks are, say how to reach them
+if [ -f "$HOME/Taskfile.yml" ]; then
+  P+=("")
+  kf hint; P+=("$KK ${acc2}tasks${n} ${dim}pick any task ·${n} ${acc2}t cr${n} ${dim}resume a Claude session ·${n} ${acc2}t cl${n} ${dim}list them ·${n} ${acc2}t ta${n} ${dim}attach tmux${n}")
+fi
+
 warn=()
 [ -f /var/run/reboot-required ] && warn+=("reboot required")
 f=$(systemctl --failed --no-legend 2>/dev/null | wc -l)
@@ -447,14 +463,36 @@ fi
 # Left column: the mascot, a blank line, the wordmark -- one gradient over all.
 LEFT=("${ART[@]}" "" "${WORDMARK[@]}")
 rows=${#LEFT[@]}
+# Decide on the real row widths: side by side only if the widest panel row
+# fits next to the mascot (the CLAUDE rows are ~100 wide); else stacked.
+pw=0; for l in "${P[@]}" "${LX[@]}"; do v=${l//$'\e'\[+([0-9;])m/}; [ ${#v} -gt "$pw" ] && pw=${#v}; done
+if [ "$side" = 1 ] && [ $(( 1 + ART_W + 3 + pw )) -gt "$cols" ]; then
+  side=0
+  [ ${#LX[@]} -gt 0 ] && { P=("${P[@]:0:pstart}" "${LX[@]}" "${P[@]:pstart}"); LX=(); }
+fi
 if [ "$side" = 1 ]; then
-  # side by side: the panel starts level with the mascot's head
-  off=2
-  total=$(( rows > ${#P[@]} + off ? rows : ${#P[@]} + off ))
+  # side by side: the panel starts level with the mascot's head; in the
+  # balanced layout CHECK and SYSTEM (already coloured) follow the wordmark
+  off=2; lw=$ART_W
+  for l in "${LX[@]}"; do v=${l//$'\e'\[+([0-9;])m/}; [ $(( ${#v} + 1 )) -gt "$lw" ] && lw=$(( ${#v} + 1 )); done
+  # Only if both columns really fit side by side; else CHECK/SYSTEM go back
+  # into the right panel where they came from.
+  if [ ${#LX[@]} -gt 0 ]; then
+    pw=0; for l in "${P[@]}"; do v=${l//$'\e'\[+([0-9;])m/}; [ ${#v} -gt "$pw" ] && pw=${#v}; done
+    if [ $(( 1 + lw + 3 + pw )) -gt "$cols" ]; then
+      P=("${P[@]:0:pstart}" "${LX[@]}" "${P[@]:pstart}"); LX=(); lw=$ART_W
+    fi
+  fi
+  nl=$(( rows + ${#LX[@]} ))
+  total=$(( nl > ${#P[@]} + off ? nl : ${#P[@]} + off ))
   for ((r = 0; r < total; r++)); do
-    line=""; a=${LEFT[r]:-}
-    [ -n "$a" ] && grad line "$a" "$r" "$rows"
-    pad=$(( ART_W - ${#a} ))
+    line=""
+    if [ "$r" -lt "$rows" ]; then
+      a=${LEFT[r]:-}; [ -n "$a" ] && grad line "$a" "$r" "$rows"; vis=${#a}
+    else
+      line=${LX[r - rows]:-}; v=${line//$'\e'\[+([0-9;])m/}; vis=${#v}
+    fi
+    pad=$(( lw - vis ))
     pi=$(( r - off ))
     if [ $pi -ge 0 ] && [ $pi -lt ${#P[@]} ]; then
       printf ' %s%s%*s   %s\n' "$line" "$n" "$pad" "" "${P[pi]}"
@@ -463,11 +501,9 @@ if [ "$side" = 1 ]; then
     fi
   done
 else
-  # Narrow terminal (VS Code split, laptop): the mascot would be 23 rows on
-  # its own -- below 120 columns only the wordmark, then the panel.
-  if [ "$cols" -lt 120 ]; then
-    LEFT=("${WORDMARK[@]}"); rows=${#LEFT[@]}
-  fi
+  # Stacked (narrow terminal, VS Code split, laptop): the mascot would be 23
+  # rows on its own above the panel -- only the wordmark.
+  LEFT=("${WORDMARK[@]}"); rows=${#LEFT[@]}
   for ((r = 0; r < rows; r++)); do
     line=""; [ -n "${LEFT[r]}" ] && grad line "${LEFT[r]}" "$r" "$rows"
     printf ' %s%s\n' "$line" "$n"
