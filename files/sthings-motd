@@ -416,7 +416,14 @@ if [ -n "$CS" ]; then
     [ ${#cdir} -gt 28 ] && cdir="…${cdir: -27}"
     printf -v ct '%-30.30s' "$ctitle"; printf -v cd_ '%-28s' "$cdir"; printf -v ca '%4s' "$cage"
     printf -v co '%-5s' "${corg:-?}"
-    if [ "$cst" = "-" ]; then cs="${dim}-${n}"; else cs="${acc2}${cst}${n} ${dim}${cwhere#tmux:}${n}"; fi
+    # state of the Claude session (busy / idle = waits for input / waiting =
+    # needs an approval) and where it runs: "tmux <session>", a pts, or
+    # "background"; a finished session says "ended"
+    if [ "$cst" = "-" ]; then cs="${dim}ended${n}"
+    else
+      cw=$cwhere; case "$cw" in tmux:*) cw="tmux ${cw#tmux:}" ;; esac
+      cs="${acc2}${cst}${n} ${dim}· ${cw}${n}"
+    fi
     k=""; [ $first = 1 ] && k=claude; first=0
     kf "$k"; P+=("$KK ${ct}  ${dim}${cd_}${n}  ${ca}  ${co}  ${cs}")
   done < <("$CS" --tsv 5 2>/dev/null)
