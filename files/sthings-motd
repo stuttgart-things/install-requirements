@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+shopt -s extglob   # +([0-9;]) when measuring coloured rows
 # sthings-motd -- login banner: the stuttgart-things mascot in a colour
 # gradient, next to what this machine is and what needs attention.
 # No sudo, no network (except dev-status's cached GitHub check).
@@ -219,6 +220,9 @@ cols=$( { stty size </dev/tty; } 2>/dev/null | cut -d' ' -f2)
 side=0; room=$(( cols - ART_W - 4 - 8 ))
 if [ $room -ge 60 ]; then side=1; SW_W=$(( room < 78 ? room : 78 ));
 else SW_W=$(( cols - 10 < 78 ? cols - 10 : 78 )); fi
+# Wide terminals (>= 160 columns): CHECK and SYSTEM go to the LEFT, under the
+# wordmark, so the two columns end at about the same height.
+balance=0; [ "$side" = 1 ] && [ "$cols" -ge 160 ] && balance=1
 
 # ---------------------------------------------------------------- panel
 P=()
@@ -289,6 +293,7 @@ if [ -r "$VCACHE" ]; then
   done
 fi
 
+pstart=${#P[@]}
 if command -v dev-status >/dev/null 2>&1; then
   P+=("")
   first=1
@@ -300,12 +305,12 @@ if command -v dev-status >/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------- resources
-# CPU, memory and disks as bars (green < 85% <= yellow < 95% <= red), then
+# CPU, memory and disks as bars (green < 80% <= yellow < 90% <= red), then
 # what runs on the machine: tmux and Claude Code sessions.
 P+=("")
 # SYSTEM: CPU, MEM, SWAP (when there is any) and the partitions as vertical
 # gauges side by side -- VH rows of eighth blocks (8 steps a row) in the
-# theme's gradient, yellow / red over 85 / 95% -- with name and percentage
+# theme's gradient, yellow / red over 80 / 90% -- with name and percentage
 # underneath and one line of detail per gauge to the right.
 VH=4; GW=4; CW=6        # gauge height, gauge width, column width
 l100=${load1/./}; l100=$((10#$l100)); cpu_p=$(( l100 / cpus )); [ $cpu_p -gt 100 ] && cpu_p=100
@@ -336,7 +341,7 @@ for ((r = VH - 1; r >= 0; r--)); do
   for ((g = 0; g < ng; g++)); do
     p=${G_P[g]}; lvl=$(( p * VH * 8 / 100 ))
     fg c $(( r1 + (r2 - r1) * r / (VH - 1) )) $(( g1 + (g2 - g1) * r / (VH - 1) )) $(( b1 + (b2 - b1) * r / (VH - 1) ))
-    [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
+    [ "$p" -ge 80 ] && c=$W; [ "$p" -ge 90 ] && c=$C
     if [ $lvl -ge $(( (r + 1) * 8 )) ]; then cell="${c}${FULL}${n}"
     elif [ $lvl -gt $(( r * 8 )) ]; then printf -v cell '%*s' "$GW" ''; cell="${c}${cell// /${EIGHTHS[lvl - r * 8]}}${n}"
     else cell="${dim}${EMPTY}${n}"; fi
@@ -347,7 +352,7 @@ done
 names=""; pcts=""
 for ((g = 0; g < ng; g++)); do
   printf -v x "%-${CW}s" "${G_L[g]}"; names+="$x"
-  p=${G_P[g]}; c=$acc2; [ "$p" -ge 85 ] && c=$W; [ "$p" -ge 95 ] && c=$C
+  p=${G_P[g]}; c=$acc2; [ "$p" -ge 80 ] && c=$W; [ "$p" -ge 90 ] && c=$C
   printf -v x "%${GW}s" "${p}%"; pcts+="${c}${x}${n}${GAP}"
 done
 rows_+=("${acc}${names}${n}" "$pcts")
@@ -359,6 +364,11 @@ for ((i = 0; i < ${#rows_[@]}; i++)); do
   kf "$k"; P+=("$KK ${rows_[i]}${txt}")
 done
 
+LX=()
+if [ "$balance" = 1 ]; then
+  LX=("${P[@]:pstart}")
+  P=("${P[@]:0:pstart}")
+fi
 # a thin rule between the gauges and the sessions
 printf -v RULE '%*s' $(( CW * ng + 30 )) ''; RULE=${RULE// /─}
 kf ""; P+=("$KK ${dim}${RULE}${n}")
@@ -403,7 +413,39 @@ if tsess=$(tmux ls -F '#{session_name}|#{session_windows}|#{session_attached}|#{
   wrap_items tmux < <(tmux_items "$tsess")
   while read -r ptty psess; do pane_sess[$ptty]=$psess; done < <(tmux list-panes -a -F '#{pane_tty} #{session_name}' 2>/dev/null)
 fi
-wrap_items claude < <(claude_items)
+# CLAUDE: with claude-sessions (dotfiles) a table of the recent sessions --
+# title, directory, age, and where it runs; without it, the running ones only.
+# The banner runs from ~/.bashrc BEFORE ~/.local/bin is put on the PATH,
+# so look there explicitly.
+CS=$(command -v claude-sessions 2>/dev/null || true)
+[ -z "$CS" ] && [ -x "$HOME/.local/bin/claude-sessions" ] && CS="$HOME/.local/bin/claude-sessions"
+if [ -n "$CS" ]; then
+  first=1
+  while IFS=$'\t' read -r _cid ccwd cage cst cwhere ctitle corg; do
+    cdir=${ccwd/#$HOME/\~}
+    [ ${#cdir} -gt 28 ] && cdir="…${cdir: -27}"
+    printf -v ct '%-30.30s' "$ctitle"; printf -v cd_ '%-28s' "$cdir"; printf -v ca '%4s' "$cage"
+    printf -v co '%-5s' "${corg:-?}"
+    # state of the Claude session (busy / idle = waits for input / waiting =
+    # needs an approval) and where it runs: "tmux <session>", a pts, or
+    # "background"; a finished session says "ended"
+    if [ "$cst" = "-" ]; then cs="${dim}ended${n}"
+    else
+      cw=$cwhere; case "$cw" in tmux:*) cw="tmux ${cw#tmux:}" ;; esac
+      cs="${acc2}${cst}${n} ${dim}· ${cw}${n}"
+    fi
+    k=""; [ $first = 1 ] && k=claude; first=0
+    kf "$k"; P+=("$KK ${ct}  ${dim}${cd_}${n}  ${ca}  ${co}  ${cs}")
+  done < <("$CS" --tsv 5 2>/dev/null)
+else
+  wrap_items claude < <(claude_items)
+fi
+
+# where the global tasks are, say how to reach them
+if [ -f "$HOME/Taskfile.yml" ]; then
+  P+=("")
+  kf hint; P+=("$KK ${acc2}tasks${n} ${dim}pick any task ·${n} ${acc2}t cr${n} ${dim}resume a Claude session ·${n} ${acc2}t cl${n} ${dim}list them ·${n} ${acc2}t ta${n} ${dim}attach tmux${n}")
+fi
 
 warn=()
 [ -f /var/run/reboot-required ] && warn+=("reboot required")
@@ -421,14 +463,36 @@ fi
 # Left column: the mascot, a blank line, the wordmark -- one gradient over all.
 LEFT=("${ART[@]}" "" "${WORDMARK[@]}")
 rows=${#LEFT[@]}
+# Decide on the real row widths: side by side only if the widest panel row
+# fits next to the mascot (the CLAUDE rows are ~100 wide); else stacked.
+pw=0; for l in "${P[@]}" "${LX[@]}"; do v=${l//$'\e'\[+([0-9;])m/}; [ ${#v} -gt "$pw" ] && pw=${#v}; done
+if [ "$side" = 1 ] && [ $(( 1 + ART_W + 3 + pw )) -gt "$cols" ]; then
+  side=0
+  [ ${#LX[@]} -gt 0 ] && { P=("${P[@]:0:pstart}" "${LX[@]}" "${P[@]:pstart}"); LX=(); }
+fi
 if [ "$side" = 1 ]; then
-  # side by side: the panel starts level with the mascot's head
-  off=2
-  total=$(( rows > ${#P[@]} + off ? rows : ${#P[@]} + off ))
+  # side by side: the panel starts level with the mascot's head; in the
+  # balanced layout CHECK and SYSTEM (already coloured) follow the wordmark
+  off=2; lw=$ART_W
+  for l in "${LX[@]}"; do v=${l//$'\e'\[+([0-9;])m/}; [ $(( ${#v} + 1 )) -gt "$lw" ] && lw=$(( ${#v} + 1 )); done
+  # Only if both columns really fit side by side; else CHECK/SYSTEM go back
+  # into the right panel where they came from.
+  if [ ${#LX[@]} -gt 0 ]; then
+    pw=0; for l in "${P[@]}"; do v=${l//$'\e'\[+([0-9;])m/}; [ ${#v} -gt "$pw" ] && pw=${#v}; done
+    if [ $(( 1 + lw + 3 + pw )) -gt "$cols" ]; then
+      P=("${P[@]:0:pstart}" "${LX[@]}" "${P[@]:pstart}"); LX=(); lw=$ART_W
+    fi
+  fi
+  nl=$(( rows + ${#LX[@]} ))
+  total=$(( nl > ${#P[@]} + off ? nl : ${#P[@]} + off ))
   for ((r = 0; r < total; r++)); do
-    line=""; a=${LEFT[r]:-}
-    [ -n "$a" ] && grad line "$a" "$r" "$rows"
-    pad=$(( ART_W - ${#a} ))
+    line=""
+    if [ "$r" -lt "$rows" ]; then
+      a=${LEFT[r]:-}; [ -n "$a" ] && grad line "$a" "$r" "$rows"; vis=${#a}
+    else
+      line=${LX[r - rows]:-}; v=${line//$'\e'\[+([0-9;])m/}; vis=${#v}
+    fi
+    pad=$(( lw - vis ))
     pi=$(( r - off ))
     if [ $pi -ge 0 ] && [ $pi -lt ${#P[@]} ]; then
       printf ' %s%s%*s   %s\n' "$line" "$n" "$pad" "" "${P[pi]}"
@@ -437,6 +501,9 @@ if [ "$side" = 1 ]; then
     fi
   done
 else
+  # Stacked (narrow terminal, VS Code split, laptop): the mascot would be 23
+  # rows on its own above the panel -- only the wordmark.
+  LEFT=("${WORDMARK[@]}"); rows=${#LEFT[@]}
   for ((r = 0; r < rows; r++)); do
     line=""; [ -n "${LEFT[r]}" ] && grad line "${LEFT[r]}" "$r" "$rows"
     printf ' %s%s\n' "$line" "$n"
