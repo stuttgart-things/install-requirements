@@ -421,7 +421,13 @@ CS=$(command -v claude-sessions 2>/dev/null || true)
 [ -z "$CS" ] && [ -x "$HOME/.local/bin/claude-sessions" ] && CS="$HOME/.local/bin/claude-sessions"
 if [ -n "$CS" ]; then
   first=1
+  nshown=0
   while IFS=$'\t' read -r _cid ccwd cage cst cwhere ctitle corg; do
+    # running sessions always; ended ones only for 24h after their last
+    # activity (age in m or h, not d); at most 5 rows
+    [ "$cst" = "-" ] && [ "${cage: -1}" = d ] && continue
+    [ "$nshown" -ge 5 ] && break
+    nshown=$((nshown + 1))
     cdir=${ccwd/#$HOME/\~}
     [ ${#cdir} -gt 28 ] && cdir="…${cdir: -27}"
     printf -v ct '%-30.30s' "$ctitle"; printf -v cd_ '%-28s' "$cdir"; printf -v ca '%4s' "$cage"
@@ -436,7 +442,7 @@ if [ -n "$CS" ]; then
     fi
     k=""; [ $first = 1 ] && k=claude; first=0
     kf "$k"; P+=("$KK ${ct}  ${dim}${cd_}${n}  ${ca}  ${co}  ${cs}")
-  done < <("$CS" --tsv 5 2>/dev/null)
+  done < <("$CS" --tsv 15 2>/dev/null)
 else
   wrap_items claude < <(claude_items)
 fi
