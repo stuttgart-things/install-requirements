@@ -642,12 +642,12 @@ bottom() {
 }
 
 # ---------------------------------------------------------------- layout
-# >= 160: the mascot next to what the machine is and has (facts, SYSTEM,
+# >= 140: the mascot next to what the machine is and has (facts, SYSTEM,
 #         STATUS, the software); below the rule, full width, what to act on:
 #         CHECK, the sessions, the hint.
-# 110-159: the wordmark, then two columns of equal width, split where both
+# 110-139: the wordmark, then two columns of equal width, split where both
 #         end level. < 110: the wordmark (if it fits), one column.
-if [ "$TOTAL" -ge 160 ]; then
+if [ "$TOTAL" -ge 140 ]; then
   LEFT=("${ART[@]}" "" "${WORDMARK[@]}"); nl=${#LEFT[@]}
   LW=$ART_W; MW=$(( TOTAL - 1 - LW - 3 ))   # the right column: what is left
   build "$MW" "${MACHB[@]}" "${CATB[@]}"
