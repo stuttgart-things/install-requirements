@@ -107,7 +107,10 @@ if [ "${1:-}" = "--refresh-versions" ]; then
       n_=$((n_ + 1))
       command -v "$tool" >/dev/null 2>&1 || continue
       read -r -a args <<<"${VARGS[$tool]:---version}"
+      # a probe that fails this time (timeout, a lock held by a running
+      # chezmoi, ...) keeps the version from the last refresh
       ( v=$(timeout 15 "$tool" "${args[@]}" </dev/null 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+        [ -n "$v" ] || v=$(awk -v t="${tool%3}" '$2 == t { print $3; exit }' "$VCACHE" 2>/dev/null)
         [ -n "$v" ] && printf '%s %s %s\n' "$ckey" "${tool%3}" "$v" >"$work/$(printf '%03d' "$n_")" ) &
     done
   done
@@ -221,6 +224,9 @@ osn=${PRETTY_NAME:-linux}
 cols=${COLUMNS:-}
 [ -n "$cols" ] || cols=$( { stty size </dev/tty; } 2>/dev/null | cut -d' ' -f2)
 [ -n "$cols" ] || cols=80
+# Everything is laid out within TOTAL columns: min(terminal, 160). Each row
+# starts with one space, so content gets TOTAL - 1.
+TOTAL=$(( cols < 160 ? cols : 160 ))
 
 # ---------------------------------------------------------------- text helpers
 # Every row is built from segments whose visible width is counted as they are
@@ -433,7 +439,7 @@ b_cat() {
   local ckey=$1 W=$2 k=$1 c name ver ilen
   while read -r c name ver; do
     [ "$c" = "$ckey" ] || continue
-    ilen=$(( ${#name} + 1 + ${#ver} ))
+    vw "$name $ver"; ilen=$VW
     if [ "$RW" -gt $KW ] && [ $(( RW + 3 + ilen )) -gt "$W" ]; then emit; fi
     if [ "$RW" -eq 0 ]; then key "$k" $KW; k=""; else seg "$dim" " · "; fi
     seg "" "$name "; seg "$acc2" "$ver"
@@ -444,15 +450,23 @@ b_cat() {
 
 # claude row: state symbol + word, title, [dir], age, "agent" when an agent
 # started it. idle = waits for you, waiting = needs your approval.
-# crest i -> REST: the session's directory (basename) and, outside tmux,
-# where it runs -- the title comes first, so at most 24 columns
+# crest i -> REST: the session's directory (basename; shortened by the
+# caller only when the row needs it); ctail i -> TAIL: where it runs outside
+# tmux and "agent" when an agent started it
 crest() {
   local d=${C_CWD[$1]}
   if [ "$d" = "$HOME" ]; then d="~"; else d=${d##*/}; fi
-  case "${C_WH[$1]}" in pts/*|background) d+=" · ${C_WH[$1]}" ;; esac
-  fit "$d" 24; REST=$FIT
+  REST=$d
 }
-crow() {   # crow KEY i INDENT -- columns from b_sess: TW, RCOL, AG
+ctail() {
+  TAIL=""
+  case "${C_WH[$1]}" in pts/*|background) TAIL=${C_WH[$1]} ;; esac
+  [ "${C_OR[$1]}" = agent ] && TAIL+="${TAIL:+ · }agent"
+  return 0
+}
+crow() {   # crow KEY i INDENT -- columns from b_sess: TW, RCOL
+  # status · title · age · folder · where/type -- the folder stays empty
+  # under a tmux session (its name says it)
   local k=$1 i=$2 ind=$3 st=${C_ST[$2]} sym sc word fw s0
   case "$st" in
     idle)    sym="○" sc=$G word=idle ;;
@@ -464,13 +478,14 @@ crow() {   # crow KEY i INDENT -- columns from b_sess: TW, RCOL, AG
   s0=$RW; seg "$sc" "$sym"; sp 1; seg "$sc" "$word"; padto $(( s0 + 11 ))
   # rows without indent get its two columns for the title: all ages align
   fit "${C_TI[i]:--}" $(( TW + 2 - ind )); vw "$FIT"; fw=$VW; seg "" "$FIT"; sp $(( TW + 2 - ind - fw ))
+  printf -v x '%4s' "${C_AGE[i]}"; sp 2; seg "$dim" "$x"
+  ctail "$i"; [ "$TLON" = 1 ] || TAIL=""
   if [ "$RCOL" -gt 0 ]; then
     sp 2; s0=$RW
-    case "${C_WH[i]}" in tmux:*) ;; *) crest "$i"; seg "$dim" "$REST" ;; esac
-    padto $(( s0 + RCOL ))
+    case "${C_WH[i]}" in tmux:*) ;; *) crest "$i"; fit "$REST" "$RCOL"; seg "$dim" "$FIT" ;; esac
+    [ -n "$TAIL" ] && padto $(( s0 + RCOL ))
   fi
-  printf -v x '%4s' "${C_AGE[i]}"; sp 2; seg "$dim" "$x"
-  [ "${C_OR[i]}" = agent ] && { sp 2; seg "$dim" "agent"; }
+  [ -n "$TAIL" ] && { sp 2; seg "$dim" "$TAIL"; }
   emit
 }
 
@@ -478,21 +493,45 @@ crow() {   # crow KEY i INDENT -- columns from b_sess: TW, RCOL, AG
 # CLAUDE: running ones outside tmux. RESUME: ended in the last 24 h (max 3).
 b_sess() {
   local W=$1 t i k=tmux kc=claude kr=resume nr=0 att base
-  # columns shared by all Claude rows: title (as wide as the longest, at
-  # most 60), directory (RCOL, dropped when it would squeeze the title below
-  # 20), age, "agent"
-  local tmax=12 rmax=0 ag=0
+  # which Claude sessions show: under a tmux session, running outside tmux,
+  # ended in the last 24 h (max 3)
+  local -A shown=() tset=(); for t in "${T_N[@]}"; do tset[$t]=1; done
   for ((i = 0; i < ${#C_ST[@]}; i++)); do
+    case "${C_WH[i]}" in tmux:*) [ -n "${tset[${C_WH[i]#tmux:}]:-}" ] && shown[$i]=1; continue ;; esac
+    if [ "${C_ST[i]}" != "-" ]; then shown[$i]=1
+    elif [ "${C_AGE[i]: -1}" != d ] && [ "$nr" -lt 3 ]; then shown[$i]=1; nr=$((nr + 1)); fi
+  done
+  nr=0
+  # their columns: title as wide as the widest shown one (max 60), the age
+  # right behind it, "agent", then the directory (dropped when the title
+  # would get less than 20)
+  local tmax=12 rmax=0 tlmax=0
+  for i in "${!shown[@]}"; do
     vw "${C_TI[i]}"; [ "$VW" -gt "$tmax" ] && tmax=$VW
-    [ "${C_OR[i]}" = agent ] && ag=7
+    ctail "$i"; vw "$TAIL"; [ "$VW" -gt "$tlmax" ] && tlmax=$VW
     case "${C_WH[i]}" in tmux:*) continue ;; esac
     crest "$i"; vw "$REST"; [ "$VW" -gt "$rmax" ] && rmax=$VW
   done
   [ "$tmax" -gt 60 ] && tmax=60
-  local fixed=$(( KW + 2 + 11 + 6 + ag ))
-  RCOL=$rmax; TW=$(( W - fixed - (RCOL > 0 ? RCOL + 2 : 0) ))
-  [ "$TW" -lt 20 ] && { RCOL=0; TW=$(( W - fixed )); }
-  [ "$TW" -gt "$tmax" ] && TW=$tmax
+  # the title takes what it needs, at least 60 % of the free width; the
+  # folder the rest; only what does not fit is shortened, a folder under 8
+  # columns is dropped
+  # Who gets the width: the title (at least 60 % of what is free), then the
+  # folder (dropped below 12 columns), then where/type (dropped when fewer
+  # than 24 columns would be left for title and folder). Nothing is cut that
+  # fits.
+  local base=$(( W - KW - 2 - 11 - 6 )) avail
+  TLON=1; avail=$(( base - (tlmax > 0 ? tlmax + 2 : 0) ))
+  [ "$avail" -lt 24 ] && { TLON=0; avail=$base; }
+  TW=$tmax; RCOL=0
+  if [ "$rmax" -gt 0 ]; then
+    [ $(( avail - rmax - 2 )) -lt "$TW" ] && TW=$(( avail - rmax - 2 ))
+    [ "$TW" -lt $(( avail * 6 / 10 )) ] && TW=$(( avail * 6 / 10 ))
+    [ "$TW" -gt "$tmax" ] && TW=$tmax
+    RCOL=$(( avail - TW - 2 )); [ "$RCOL" -gt "$rmax" ] && RCOL=$rmax
+    [ "$RCOL" -lt 12 ] && [ "$RCOL" -lt "$rmax" ] && RCOL=0
+  fi
+  [ "$TW" -gt $(( avail - (RCOL > 0 ? RCOL + 2 : 0) )) ] && TW=$(( avail - (RCOL > 0 ? RCOL + 2 : 0) ))
   for t in "${T_N[@]}"; do
     key "$k" $KW; k=""
     seg "$acc2" "$t"; seg "$dim" " · ${T_W[$t]} win"
@@ -504,10 +543,15 @@ b_sess() {
       [ "${C_WH[i]}" = "tmux:$t" ] && crow "" "$i" 2
     done
   done
-  for ((i = 0; i < ${#C_ST[@]}; i++)); do
-    case "${C_ST[i]}" in -) continue ;; esac
-    case "${C_WH[i]}" in tmux:*) continue ;; esac
-    crow "$kc" "$i" 0; kc=""
+  # outside tmux: the ones waiting for you (an approval) first
+  for pass in waiting other; do
+    for ((i = 0; i < ${#C_ST[@]}; i++)); do
+      case "${C_ST[i]}" in -) continue ;; esac
+      case "${C_WH[i]}" in tmux:*) continue ;; esac
+      if [ "$pass" = waiting ]; then [ "${C_ST[i]}" = waiting ] || continue
+      else [ "${C_ST[i]}" = waiting ] && continue; fi
+      crow "$kc" "$i" 0; kc=""
+    done
   done
   for ((i = 0; i < ${#C_ST[@]} && nr < 3; i++)); do
     [ "${C_ST[i]}" = "-" ] || continue
@@ -565,15 +609,38 @@ gradient_rows() {   # print LINES (array name) with the art gradient, padded to 
   for ((r = 0; r < rows; r++)); do line=""; [ -n "${_l[r]}" ] && grad line "${_l[r]}" "$r" "$rows"; GR[r]=$line; done
 }
 
+# bottom W: CHECK | sessions side by side (W >= 139, i.e. TOTAL >= 140), the
+# CHECK column as wide as its widest row (max 60); else one below the other.
+# The hint full width below.
+bottom() {
+  local W=$1 cw r
+  build "$W" check
+  if [ ${#BS[@]} -gt 0 ] && [ $(( W + 1 )) -ge 140 ]; then
+    cw=0; for r in "${ROWW[@]}"; do [ "$r" -gt "$cw" ] && cw=$r; done
+    [ "$cw" -gt 60 ] && cw=60
+    build "$cw" check; column 0 ${#BS[@]}; local LC=("${COL[@]}") LCW=("${COLW[@]}")
+    build $(( W - cw - 3 )) sess; column 0 ${#BS[@]}; local RC=("${COL[@]}")
+    local total=$(( ${#LC[@]} > ${#RC[@]} ? ${#LC[@]} : ${#RC[@]} ))
+    for ((r = 0; r < total; r++)); do
+      if [ $r -lt ${#RC[@]} ]; then printf ' %s%*s   %s\n' "${LC[r]:-}" $(( cw - ${LCW[r]:-0} )) "" "${RC[r]}"
+      else printf ' %s\n' "${LC[r]:-}"; fi
+    done
+    build "$W" hint
+  else
+    build "$W" check sess hint
+  fi
+  [ ${#BS[@]} -gt 0 ] && { [ "${BNAME[0]}" = hint ] && echo; column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done; }
+}
+
 # ---------------------------------------------------------------- layout
 # >= 160: the mascot next to what the machine is and has (facts, SYSTEM,
 #         STATUS, the software); below the rule, full width, what to act on:
 #         CHECK, the sessions, the hint.
 # 110-159: the wordmark, then two columns of equal width, split where both
 #         end level. < 110: the wordmark (if it fits), one column.
-if [ "$cols" -ge 160 ]; then
+if [ "$TOTAL" -ge 160 ]; then
   LEFT=("${ART[@]}" "" "${WORDMARK[@]}"); nl=${#LEFT[@]}
-  LW=$ART_W; MW=$(( cols - 1 - LW - 3 ))
+  LW=$ART_W; MW=$(( TOTAL - 1 - LW - 3 ))   # the right column: what is left
   build "$MW" "${MACHB[@]}" "${CATB[@]}"
   column 0 ${#BS[@]}; TOP=("${COL[@]}")
   off=$(( nl - ${#TOP[@]} )); [ $off -lt 0 ] && off=0; [ $off -gt 2 ] && off=2
@@ -588,16 +655,15 @@ if [ "$cols" -ge 160 ]; then
       printf ' %s%s\n' "${GR[r]:-}" "$n"
     fi
   done
-  # below: CHECK, sessions, hint
-  BWID=$(( cols - 2 )); [ $BWID -gt 150 ] && BWID=150
-  build "$BWID" check sess hint
-  if [ ${#BS[@]} -gt 0 ]; then
-    printf -v RULE '%*s' "$BWID" ''; printf ' %s%s%s\n' "$dim" "${RULE// /─}" "$n"
-    column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done
-  fi
-elif [ "$cols" -ge 110 ]; then
+  # below the rule (exactly TOTAL wide, flush with the top): CHECK and the
+  # sessions side by side from 140 columns, else one below the other; the
+  # hint full width under both
+  BWID=$(( TOTAL - 1 ))
+  printf -v RULE '%*s' "$BWID" ''; printf ' %s%s%s\n' "$dim" "${RULE// /─}" "$n"
+  bottom "$BWID"
+elif [ "$TOTAL" -ge 110 ]; then
   GR=(); gradient_rows WORDMARK; for l in "${GR[@]}"; do printf ' %s%s\n' "$l" "$n"; done; echo
-  CW_=$(( (cols - 1 - 3) / 2 ))
+  CW_=$(( (TOTAL - 1 - 3) / 2 ))
   build "$CW_" "${MACHB[@]}" "${CATB[@]}" check sess hint
   nb=${#BS[@]}; best=1; bd=99999
   for ((k = 1; k < nb; k++)); do
@@ -615,8 +681,8 @@ elif [ "$cols" -ge 110 ]; then
     fi
   done
 else
-  if [ "$cols" -ge 62 ]; then GR=(); gradient_rows WORDMARK; for l in "${GR[@]}"; do printf ' %s%s\n' "$l" "$n"; done; echo; fi
-  build $(( cols - 2 )) "${MACHB[@]}" "${CATB[@]}" check sess hint
+  if [ "$TOTAL" -ge 62 ]; then GR=(); gradient_rows WORDMARK; for l in "${GR[@]}"; do printf ' %s%s\n' "$l" "$n"; done; echo; fi
+  build $(( TOTAL - 1 )) "${MACHB[@]}" "${CATB[@]}" check sess hint
   column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done
 fi
 echo
