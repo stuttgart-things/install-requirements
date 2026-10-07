@@ -92,7 +92,16 @@ declare -A VARGS=(
 )
 VCACHE="${XDG_CACHE_HOME:-$HOME/.cache}/sthings-motd/versions"
 if [ "${1:-}" = "--refresh-versions" ]; then
-  export CHECKPOINT_DISABLE=1 PATH="$PATH:/usr/local/go/bin:$HOME/.local/bin"
+  # The PATH of the user's login shell, not this background job's: nvm's
+  # default node (else /usr/bin/node from the apt package wins -- dev5 showed
+  # node 22 / npm 9 while the shell runs 24 / 11) and ~/ansible-venv (else
+  # ansible is missing from the list). Those go FIRST, as in the shell.
+  nvm_bin=""
+  if [ -r "$HOME/.nvm/alias/default" ]; then
+    read -r nvm_def <"$HOME/.nvm/alias/default"
+    for d in "$HOME/.nvm/versions/node/v${nvm_def#v}"*; do [ -x "$d/bin/node" ] && nvm_bin="$d/bin"; done
+  fi
+  export CHECKPOINT_DISABLE=1 PATH="${nvm_bin:+$nvm_bin:}${HOME}/ansible-venv/bin:$PATH:/usr/local/go/bin:$HOME/.local/bin"
   mkdir -p "${VCACHE%/*}"
   lock="${VCACHE%/*}/.lock"
   mkdir "$lock" 2>/dev/null || exit 0
