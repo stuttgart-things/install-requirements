@@ -344,6 +344,16 @@ else
   done < <(grep -lx claude /proc/[0-9]*/comm 2>/dev/null)
 fi
 
+# Titles without pasted blocks, [Pasted text …] / [Image …] and <tags> -- an
+# older claude-sessions passes them on raw.
+for ((i = 0; i < ${#C_TI[@]}; i++)); do
+  t=${C_TI[i]}
+  t=${t//<pasted_content*([^>])>*([^<])<\/pasted_content>/ }; t=${t%%<pasted_content*}
+  t=${t//\[@(Pasted text|Image)*([^]])\]/}; t=${t//<*([^>])>/ }; t=${t%%<*([^>])}
+  t=${t//+([[:space:]])/ }; t=${t# }; t=${t% }
+  C_TI[i]=$t
+done
+
 # ---------------------------------------------------------------- blocks
 # Each block appends its rows (at most W columns wide) to ROWS / ROWW.
 
@@ -538,7 +548,7 @@ height() { local i; H=0; for ((i = $1; i < $2; i++)); do H=$(( H + BL[i] )); [ "
 
 CATKEYS=(SHELL); [ -r "$VCACHE" ] && for c in "${CATS[@]}"; do [ "${c%% *}" = SHELL ] || CATKEYS+=("${c%% *}"); done
 CATB=(); [ -r "$VCACHE" ] && for c in "${CATKEYS[@]}"; do CATB+=("cat:$c"); done
-MACHB=(facts check system status)
+MACHB=(facts system status)
 
 gradient_rows() {   # print LINES (array name) with the art gradient, padded to $2
   local -n _l=$1; local r rows=${#_l[@]} line
@@ -546,20 +556,16 @@ gradient_rows() {   # print LINES (array name) with the art gradient, padded to 
 }
 
 # ---------------------------------------------------------------- layout
-# >= 160: the mascot next to the machine (facts, CHECK, SYSTEM, STATUS, and
-#         as many software categories as keep both columns level), the rest
-#         of the software, the sessions and the hint full width below.
+# >= 160: the mascot next to what the machine is and has (facts, SYSTEM,
+#         STATUS, the software); below the rule, full width, what to act on:
+#         CHECK, the sessions, the hint.
 # 110-159: the wordmark, then two columns of equal width, split where both
 #         end level. < 110: the wordmark (if it fits), one column.
 if [ "$cols" -ge 160 ]; then
   LEFT=("${ART[@]}" "" "${WORDMARK[@]}"); nl=${#LEFT[@]}
   LW=$ART_W; MW=$(( cols - 1 - LW - 3 ))
   build "$MW" "${MACHB[@]}" "${CATB[@]}"
-  nm=0; for b in "${BNAME[@]}"; do case "$b" in cat:*) ;; *) nm=$((nm + 1)) ;; esac; done
-  k=$nm; height 0 "$k"
-  while [ "$k" -lt ${#BS[@]} ]; do height 0 $((k + 1)); [ "$H" -le "$nl" ] || break; k=$((k + 1)); done
-  UPB=("${BNAME[@]:nm:k-nm}")
-  column 0 "$k"; TOP=("${COL[@]}")
+  column 0 ${#BS[@]}; TOP=("${COL[@]}")
   off=$(( nl - ${#TOP[@]} )); [ $off -lt 0 ] && off=0; [ $off -gt 2 ] && off=2
   GR=(); gradient_rows LEFT
   total=$(( nl > ${#TOP[@]} + off ? nl : ${#TOP[@]} + off ))
@@ -572,10 +578,9 @@ if [ "$cols" -ge 160 ]; then
       printf ' %s%s\n' "${GR[r]:-}" "$n"
     fi
   done
-  # below: the categories that did not go up, sessions, hint
+  # below: CHECK, sessions, hint
   BWID=$(( cols - 2 )); [ $BWID -gt 150 ] && BWID=150
-  rest=(); for b in "${CATB[@]}"; do [[ " ${UPB[*]} " == *" $b "* ]] || rest+=("$b"); done
-  build "$BWID" "${rest[@]}" sess hint
+  build "$BWID" check sess hint
   if [ ${#BS[@]} -gt 0 ]; then
     printf -v RULE '%*s' "$BWID" ''; printf ' %s%s%s\n' "$dim" "${RULE// /─}" "$n"
     column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done
@@ -583,7 +588,7 @@ if [ "$cols" -ge 160 ]; then
 elif [ "$cols" -ge 110 ]; then
   GR=(); gradient_rows WORDMARK; for l in "${GR[@]}"; do printf ' %s%s\n' "$l" "$n"; done; echo
   CW_=$(( (cols - 1 - 3) / 2 ))
-  build "$CW_" "${MACHB[@]}" "${CATB[@]}" sess hint
+  build "$CW_" "${MACHB[@]}" "${CATB[@]}" check sess hint
   nb=${#BS[@]}; best=1; bd=99999
   for ((k = 1; k < nb; k++)); do
     height 0 "$k"; hl=$H; height "$k" "$nb"; d=$(( hl > H ? hl - H : H - hl ))
@@ -601,7 +606,7 @@ elif [ "$cols" -ge 110 ]; then
   done
 else
   if [ "$cols" -ge 62 ]; then GR=(); gradient_rows WORDMARK; for l in "${GR[@]}"; do printf ' %s%s\n' "$l" "$n"; done; echo; fi
-  build $(( cols - 2 )) "${MACHB[@]}" "${CATB[@]}" sess hint
+  build $(( cols - 2 )) "${MACHB[@]}" "${CATB[@]}" check sess hint
   column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done
 fi
 echo
