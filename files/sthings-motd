@@ -346,11 +346,21 @@ fi
 
 # Titles without pasted blocks, [Pasted text …] / [Image …] and <tags> -- an
 # older claude-sessions passes them on raw.
+# Plain expansions only: extglob patterns here cost ~40 ms a title.
 for ((i = 0; i < ${#C_TI[@]}; i++)); do
   t=${C_TI[i]}
-  t=${t//<pasted_content*([^>])>*([^<])<\/pasted_content>/ }; t=${t%%<pasted_content*}
-  t=${t//\[@(Pasted text|Image)*([^]])\]/}; t=${t//<*([^>])>/ }; t=${t%%<*([^>])}
-  t=${t//+([[:space:]])/ }; t=${t# }; t=${t% }
+  if [[ $t == *[\<\[]* ]]; then
+    while [[ $t == *"<pasted_content"* ]]; do
+      pre=${t%%<pasted_content*}
+      if [[ $t == *"</pasted_content>"* ]]; then t="$pre ${t#*</pasted_content>}"; else t=$pre; fi
+    done
+    for ph in "[Pasted text" "[Image"; do
+      while [[ $t == *"$ph"*"]"* ]]; do pre=${t%%"$ph"*}; post=${t#*"$ph"}; t="$pre${post#*]}"; done
+    done
+    while [[ $t == *"<"*">"* ]]; do pre=${t%%<*}; post=${t#*<}; t="$pre ${post#*>}"; done
+    t=${t%%<*}
+  fi
+  t=${t//$'\t'/ }; while [[ $t == *"  "* ]]; do t=${t//  / }; done; t=${t# }; t=${t% }
   C_TI[i]=$t
 done
 
