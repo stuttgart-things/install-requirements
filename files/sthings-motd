@@ -321,63 +321,50 @@ if [ -r /var/lib/update-notifier/updates-available ]; then
   while read -r a b _; do [ "$b" = updates ] && { upd=$a; break; }; done </var/lib/update-notifier/updates-available
 fi
 
-# Sessions: tmux sessions, and Claude Code sessions from claude-sessions
-# (dotfiles: id cwd age state where title origin). The banner runs from
-# ~/.bashrc BEFORE ~/.local/bin is on the PATH, so look there explicitly.
-T_N=(); declare -A T_W=() T_A=() T_P=()
-while IFS='|' read -r tname twin tatt tpath; do
-  [ -n "$tname" ] || continue
-  T_N+=("$tname"); T_W[$tname]=$twin; T_A[$tname]=$tatt; T_P[$tname]=$tpath
-done < <(tmux ls -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_path}' 2>/dev/null)
-C_CWD=(); C_AGE=(); C_ST=(); C_WH=(); C_TI=(); C_OR=()
+# Sessions from claude-sessions --json (dotfiles): the one source the global
+# tasks use too. tmux session = a live workplace; Claude session = a
+# conversation that MAY run in a tmux pane (claude-sessions decides that).
+# Without claude-sessions (a VM without the dotfiles) only `tmux ls`.
+# The banner runs from ~/.bashrc BEFORE ~/.local/bin is on the PATH, so look
+# there explicitly.
+T_N=(); declare -A T_W=() T_A=() T_P=() T_KNOWN=()
+C_ID=(); C_CWD=(); C_AGE=(); C_ST=(); C_TMUX=(); C_WH=(); C_TI=(); C_OR=(); C_RUN=()
 CS=$(command -v claude-sessions 2>/dev/null || true)
 [ -z "$CS" ] && [ -x "$HOME/.local/bin/claude-sessions" ] && CS="$HOME/.local/bin/claude-sessions"
-if [ -n "$CS" ]; then
-  while IFS=$'\t' read -r _ ccwd cage cst cwhere ctitle corg; do
-    C_CWD+=("$ccwd"); C_AGE+=("$cage"); C_ST+=("$cst"); C_WH+=("$cwhere"); C_TI+=("$ctitle"); C_OR+=("$corg")
-  done < <("$CS" --tsv 15 2>/dev/null)
-else
-  # Without the dotfiles: the running claude processes from /proc (stat field
-  # 7 is tty_nr, pts = major 136..143; field 22 the start time in ticks).
-  declare -A pane_sess=()
-  while read -r ptty psess; do pane_sess[$ptty]=$psess; done < <(tmux list-panes -a -F '#{pane_tty} #{session_name}' 2>/dev/null)
-  read -r upt _ </proc/uptime; upt=${upt%.*}
-  while read -r f; do
-    pid=${f#/proc/}; pid=${pid%/comm}
-    [ -O "/proc/$pid" ] || continue
-    cdir=$(readlink "/proc/$pid/cwd" 2>/dev/null)
-    read -r -a st <"/proc/$pid/stat" 2>/dev/null || continue
-    tn=${st[6]}; ctty=""
-    if [ $(( tn >> 8 )) -ge 136 ] && [ $(( tn >> 8 )) -le 143 ]; then
-      ctty="pts/$(( (tn & 0xff) | ((tn >> 12) & 0xfff00) + ((tn >> 8) - 136) * 256 ))"
+if [ -n "$CS" ] && command -v jq >/dev/null 2>&1; then
+  while IFS=$'\t' read -r k a b c d e f g h i; do
+    if [ "$k" = T ]; then
+      T_N+=("$a"); T_W[$a]=$b; T_A[$a]=$c; T_P[$a]=$d; T_KNOWN[$a]=1
+    else
+      C_ID+=("$a"); C_CWD+=("$b"); C_AGE+=("$c"); C_ST+=("$d"); C_TMUX+=("$e"); C_WH+=("$f")
+      [ "$g" = "-" ] && g=""
+      C_TI+=("$g"); C_OR+=("$h"); C_RUN+=("$i")
     fi
-    if [ -z "$ctty" ]; then w=background
-    elif [ -n "${pane_sess[/dev/$ctty]:-}" ]; then w="tmux:${pane_sess[/dev/$ctty]}"
-    else w=$ctty; fi
-    dur $(( upt - st[21] / 100 ))
-    C_CWD+=("$cdir"); C_AGE+=("$DUR"); C_ST+=(running); C_WH+=("$w"); C_TI+=("${cdir##*/}"); C_OR+=("")
-  done < <(grep -lx claude /proc/[0-9]*/comm 2>/dev/null)
+  done < <("$CS" --json 15 2>/dev/null | jq -r '
+      (.tmux[] | ["T", .name, (.windows|tostring), (.attached|tostring), .path, "", "", "", "", ""]),
+      (.sessions[] | ["S", .id, .cwd, .age, (.state // "-"), (.tmux // "-"), (.where // "-"),
+                      (.title // ""), .origin, (.running|tostring)])
+      | map(if . == null or . == "" then "-" else . end) | @tsv' 2>/dev/null)
+else
+  while IFS='|' read -r tname twin tatt tpath; do
+    [ -n "$tname" ] || continue
+    T_N+=("$tname"); T_W[$tname]=$twin; T_A[$tname]=$((tatt > 0)); T_P[$tname]=$tpath
+  done < <(tmux ls -F '#{session_name}|#{session_windows}|#{session_attached}|#{session_path}' 2>/dev/null)
+  for t in "${T_N[@]}"; do T_A[$t]=$([ "${T_A[$t]}" = 1 ] && echo true || echo false); done
 fi
-
-# Titles without pasted blocks, [Pasted text …] / [Image …] and <tags> -- an
-# older claude-sessions passes them on raw.
-# Plain expansions only: extglob patterns here cost ~40 ms a title.
-for ((i = 0; i < ${#C_TI[@]}; i++)); do
-  t=${C_TI[i]}
-  if [[ $t == *[\<\[]* ]]; then
-    while [[ $t == *"<pasted_content"* ]]; do
-      pre=${t%%<pasted_content*}
-      if [[ $t == *"</pasted_content>"* ]]; then t="$pre ${t#*</pasted_content>}"; else t=$pre; fi
-    done
-    for ph in "[Pasted text" "[Image"; do
-      while [[ $t == *"$ph"*"]"* ]]; do pre=${t%%"$ph"*}; post=${t#*"$ph"}; t="$pre${post#*]}"; done
-    done
-    while [[ $t == *"<"*">"* ]]; do pre=${t%%<*}; post=${t#*<}; t="$pre ${post#*>}"; done
-    t=${t%%<*}
-  fi
-  t=${t//$'\t'/ }; while [[ $t == *"  "* ]]; do t=${t//  / }; done; t=${t# }; t=${t% }
-  C_TI[i]=$t
-done
+# Docker: one `docker ps` (~90 ms; 2 s cap if the daemon hangs). Memory from
+# cgroup v2 (memory.current of the container's scope) -- `docker stats` would
+# take seconds. kind clusters are the containers labelled
+# io.x-k8s.kind.cluster.
+D_NAME=(); D_STATE=(); D_CL=(); D_ROLE=(); D_FOR=(); D_PORTS=(); D_MEM=()
+if command -v docker >/dev/null 2>&1; then
+  while IFS=$'\t' read -r did dname dstate dcl drole dfor dports; do
+    [ -n "$did" ] || continue
+    m=0; read -r m 2>/dev/null </sys/fs/cgroup/system.slice/docker-$did.scope/memory.current || m=0
+    [ "$dcl" = "-" ] && dcl=""; [ "$drole" = "-" ] && drole=""; [ "$dports" = "-" ] && dports=""
+    D_NAME+=("$dname"); D_STATE+=("$dstate"); D_CL+=("$dcl"); D_ROLE+=("$drole"); D_FOR+=("$dfor"); D_PORTS+=("$dports"); D_MEM+=("${m:-0}")
+  done < <(timeout 2 docker ps -a --no-trunc --format '{{.ID}}	{{.Names}}	{{.State}}	{{if .Label "io.x-k8s.kind.cluster"}}{{.Label "io.x-k8s.kind.cluster"}}{{else}}-{{end}}	{{if .Label "io.x-k8s.kind.role"}}{{.Label "io.x-k8s.kind.role"}}{{else}}-{{end}}	{{.RunningFor}}	{{if .Ports}}{{.Ports}}{{else}}-{{end}}' 2>/dev/null)
+fi
 
 # ---------------------------------------------------------------- blocks
 # Each block appends its rows (at most W columns wide) to ROWS / ROWW.
@@ -397,12 +384,25 @@ b_facts() {
   fi
 }
 
+# CHECK on one line: "✓ gh  ✓ git  ✓ sops  ✓ kube <context>"; a check that is
+# not ok is in that line too and gets one extra row with its detail.
 b_check() {
-  local W=$1 l state check text k=check s sc
+  local W=$1 l state check text s sc bad=()
+  [ ${#CHK[@]} -gt 0 ] || return 0
+  key check $KW
   for l in "${CHK[@]}"; do
     IFS=$'\t' read -r state check text <<<"$l"
     case "$state" in ok) s="✓" sc=$G ;; bad) s="✗" sc=$C ;; *) s="!" sc=$YL ;; esac
-    key "$k" $KW; k=""; seg "$sc" "$s"; sp 1; seg "" "$check"; padto $(( KW + 8 ))
+    [ "$RW" -gt $KW ] && sp 2
+    seg "$sc" "$s"; sp 1; seg "" "$check"
+    if [ "$state" = ok ] && [ "$check" = kube ]; then fit "$text" $(( W - RW - 1 )); sp 1; seg "$dim" "$FIT"; fi
+    [ "$state" = ok ] || bad+=("$l")
+  done
+  emit
+  for l in "${bad[@]}"; do
+    IFS=$'\t' read -r state check text <<<"$l"
+    case "$state" in bad) s="✗" sc=$C ;; *) s="!" sc=$YL ;; esac
+    key "" $KW; seg "$sc" "$s"; sp 1; seg "" "$check"; padto $(( KW + 8 ))
     fit "$text" $(( W - RW )); seg "" "$FIT"; emit
   done
 }
@@ -459,129 +459,229 @@ b_cat() {
 
 # claude row: state symbol + word, title, [dir], age, "agent" when an agent
 # started it. idle = waits for you, waiting = needs your approval.
-# crest i -> REST: the session's directory (basename; shortened by the
-# caller only when the row needs it); ctail i -> TAIL: where it runs outside
-# tmux and "agent" when an agent started it
-crest() {
-  local d=${C_CWD[$1]}
-  if [ "$d" = "$HOME" ]; then d="~"; else d=${d##*/}; fi
-  REST=$d
-}
-ctail() {
-  TAIL=""
-  case "${C_WH[$1]}" in pts/*|background) TAIL=${C_WH[$1]} ;; esac
-  [ "${C_OR[$1]}" = agent ] && TAIL+="${TAIL:+ · }agent"
-  return 0
-}
-crow() {   # crow KEY i INDENT -- columns from b_sess: TW, RCOL
-  # status · title · age · folder · where/type -- the folder stays empty
-  # under a tmux session (its name says it)
-  local k=$1 i=$2 ind=$3 st=${C_ST[$2]} sym sc word fw s0
-  case "$st" in
-    idle)    sym="○" sc=$G word=idle ;;
-    waiting) sym="!" sc=$YL word=waiting ;;
-    -)       sym="↺" sc=$dim word="" ;;
-    *)       sym="●" sc=$acc2 word=$st ;;
+# TMUX: one row per tmux session (attached first) --
+#   ▣ <name>  <n> win  [attached]  <cwd>          "(kein Claude)" at the end
+# and below it, indented, each Claude session running in one of its panes:
+#   ✦ <state> <title> <age>     ◆ waiting yellow · ● busy green · ○ idle grey
+# Only real tmux sessions; Claude running OUTSIDE tmux (a bare terminal, an
+# agent) is in the CLAUDE block. ▣ and tmux names in one colour (acc), ✦ and
+# Claude titles in the other (acc2). Columns aligned across the block; only
+# titles are cut (word boundary, …, by characters).
+cstate() {   # cstate state -> CS_SYM CS_COL CS_WORD
+  case "$1" in
+    waiting) CS_SYM="◆" CS_COL=$YL CS_WORD=waiting ;;
+    idle)    CS_SYM="○" CS_COL=$dim CS_WORD=idle ;;
+    *)       CS_SYM="●" CS_COL=$G CS_WORD=busy ;;
   esac
-  key "$k" $KW; sp "$ind"
-  s0=$RW; seg "$sc" "$sym"; sp 1; seg "$sc" "$word"; padto $(( s0 + 11 ))
-  # rows without indent get its two columns for the title: all ages align
-  fit "${C_TI[i]:--}" $(( TW + 2 - ind )); vw "$FIT"; fw=$VW; seg "" "$FIT"; sp $(( TW + 2 - ind - fw ))
-  printf -v x '%4s' "${C_AGE[i]}"; sp 2; seg "$dim" "$x"
-  ctail "$i"; [ "$TLON" = 1 ] || TAIL=""
-  if [ "$RCOL" -gt 0 ]; then
-    sp 2; s0=$RW
-    case "${C_WH[i]}" in tmux:*) ;; *) crest "$i"; fit "$REST" "$RCOL"; seg "$dim" "$FIT" ;; esac
-    [ -n "$TAIL" ] && padto $(( s0 + RCOL ))
+}
+b_tmux() {
+  local W=$1 t i k=tmux nw=0 ww=0 aw=0 tw sw=0 agw=0 ind=4 x
+  local -a order=()
+  [ ${#T_N[@]} -gt 0 ] || return 0
+  # attached first, then by name
+  for t in "${T_N[@]}"; do [ "${T_A[$t]}" = true ] && order+=("$t"); done
+  for t in "${T_N[@]}"; do [ "${T_A[$t]}" = true ] || order+=("$t"); done
+  # column widths
+  for t in "${order[@]}"; do vw "$t"; [ "$VW" -gt "$nw" ] && nw=$VW; x="${T_W[$t]} win"; [ ${#x} -gt "$ww" ] && ww=${#x}; done
+  for t in "${order[@]}"; do [ "${T_A[$t]}" = true ] && aw=8; done
+  local tmax=0 ew=0 e
+  for ((i = 0; i < ${#C_ST[@]}; i++)); do
+    [ "${C_RUN[i]}" = true ] && [ "${C_TMUX[i]}" != "-" ] || continue
+    e=0; [ "${C_OR[i]}" = agent ] && e=7
+    case "${C_WH[i]}" in pts/*|background) e=$(( e + 2 + ${#C_WH[i]} )) ;; esac
+    [ "$e" -gt "$ew" ] && ew=$e
+    cstate "${C_ST[i]}"; [ ${#CS_WORD} -gt "$sw" ] && sw=${#CS_WORD}
+    [ ${#C_AGE[i]} -gt "$agw" ] && agw=${#C_AGE[i]}
+    vw "${C_TI[i]:-(ohne Titel)}"; [ "$VW" -gt "$tmax" ] && tmax=$VW
+  done
+  # KW, indent, "✦ ", "◆ " + word, gap, title, gap, age, extras
+  tw=$(( W - KW - ind - 2 - 2 - sw - 2 - 2 - agw - ew )); [ "$tw" -gt "$tmax" ] && tw=$tmax; [ "$tw" -lt 8 ] && tw=8
+  trow() {   # trow NAME WINS ATTACHED PATH HASCLAUDE
+    local s0 p
+    key "$k" $KW; k=""
+    seg "$acc" "▣"; sp 1; s0=$RW; seg "$acc" "$1"; padto $(( s0 + nw ))
+    if [ -n "$2" ]; then
+      sp 2; s0=$RW; seg "$dim" "$2"; padto $(( s0 + ww ))
+      [ "$aw" -gt 0 ] && { sp 2; s0=$RW; [ "$3" = true ] && seg "$G" "attached"; padto $(( s0 + aw )); }
+      p=$4; [ "$p" = "$HOME" ] && p="~" || p=${p/#$HOME\//\~/}
+      sp 2; fit "$p" $(( W - RW - ( $5 ? 0 : 15 ) )); seg "$dim" "$FIT"
+      [ "$5" = 0 ] && { sp 2; seg "$dim" "(kein Claude)"; }
+    fi
+    emit
+  }
+  crun() {   # crun i
+    local i=$1 fw s0
+    cstate "${C_ST[i]}"
+    key "" $KW; sp "$ind"
+    seg "$acc2" "✦"; sp 1; s0=$RW; seg "$CS_COL" "$CS_SYM $CS_WORD"; padto $(( s0 + 2 + sw )); sp 2
+    fit "${C_TI[i]:-(ohne Titel)}" "$tw"; vw "$FIT"; fw=$VW; seg "$acc2" "$FIT"; sp $(( tw - fw + 2 ))
+    printf -v x "%${agw}s" "${C_AGE[i]}"; seg "$dim" "$x"
+    [ "${C_OR[i]}" = agent ] && { sp 2; seg "$dim" "agent"; }
+    case "${C_WH[i]}" in pts/*|background) sp 2; seg "$dim" "${C_WH[i]}" ;; esac
+    emit
+  }
+  for t in "${order[@]}"; do
+    local has=0
+    for ((i = 0; i < ${#C_ST[@]}; i++)); do [ "${C_TMUX[i]}" = "$t" ] && [ "${C_RUN[i]}" = true ] && has=1; done
+    [ -n "${T_KNOWN[$t]:-}" ] || has=1   # without claude-sessions: unknown, say nothing
+    trow "$t" "${T_W[$t]} win" "${T_A[$t]}" "${T_P[$t]}" "$has"
+    for ((i = 0; i < ${#C_ST[@]}; i++)); do [ "${C_TMUX[i]}" = "$t" ] && [ "${C_RUN[i]}" = true ] && crun "$i"; done
+  done
+}
+
+# CLAUDE: first the conversations RUNNING outside tmux (a bare terminal, an
+# agent) with their state and where; then, under a small grey "resume", the
+# ones not running that you started (agents' runs are not yours to resume),
+# newest first, at most 4, then "+N weitere (t cl)". Every row:
+#   ✦ [state] <title> <cwd> <age> <where | id>
+b_claude() {
+  local W=$1 i r=0 cw=0 agw=0 sw=0 lw=0 tw tmax=0 fw s0 p rk
+  local -a run=() res=() rows=()
+  for ((i = 0; i < ${#C_ST[@]}; i++)); do
+    if [ "${C_RUN[i]}" = true ]; then
+      [ "${C_TMUX[i]}" = "-" ] || continue
+      case "${C_ST[i]}" in waiting) rk=0 ;; busy) rk=1 ;; *) rk=2 ;; esac
+      run+=("$rk $i")
+    elif [ "${C_OR[i]}" = you ]; then res+=("$i"); fi
+  done
+  [ ${#run[@]} -gt 0 ] && mapfile -t run < <(printf '%s\n' "${run[@]}" | sort -n -s -k1,1 | awk '{print $2}')
+  local nres=$(( ${#res[@]} > 4 ? 4 : ${#res[@]} ))
+  rows=("${run[@]}" "${res[@]:0:nres}")
+  [ ${#rows[@]} -gt 0 ] || return 0
+  CPATH=(); CLAST=()
+  for i in "${rows[@]}"; do
+    p=${C_CWD[i]}; [ "$p" = "$HOME" ] && p="~" || p=${p/#$HOME\//\~/}; CPATH[i]=$p
+    vw "$p"; [ "$VW" -gt "$cw" ] && cw=$VW
+    [ ${#C_AGE[i]} -gt "$agw" ] && agw=${#C_AGE[i]}
+    vw "${C_TI[i]:-(ohne Titel)}"; [ "$VW" -gt "$tmax" ] && tmax=$VW
+    if [ "${C_RUN[i]}" = true ]; then
+      cstate "${C_ST[i]}"; [ $(( 2 + ${#CS_WORD} )) -gt "$sw" ] && sw=$(( 2 + ${#CS_WORD} ))
+      CLAST[i]=${C_WH[i]}; [ "${C_OR[i]}" = agent ] && CLAST[i]="agent · ${C_WH[i]}"
+    else CLAST[i]=${C_ID[i]:0:8}; fi
+    vw "${CLAST[i]}"; [ "$VW" -gt "$lw" ] && lw=$VW
+  done
+  local sg=0; [ "$sw" -gt 0 ] && sg=$(( sw + 2 ))
+  tw=$(( W - KW - 2 - sg - 2 - cw - 2 - agw - 2 - lw )); [ "$tw" -gt "$tmax" ] && tw=$tmax
+  if [ "$tw" -lt 20 ]; then local cut=$(( 20 - tw )); [ $(( cw - cut )) -lt 10 ] && cut=$(( cw - 10 )); [ "$cut" -gt 0 ] && { cw=$(( cw - cut )); tw=$(( tw + cut )); }; fi
+  [ "$tw" -lt 8 ] && tw=8
+  local first_res=${#run[@]} labelled=0
+  for ((r = 0; r < ${#rows[@]}; r++)); do i=${rows[r]}
+    # key column: CLAUDE on the first row; a small grey "resume" on the first
+    # resume row (or the one after it, when CLAUDE took that row)
+    if [ "$r" = 0 ]; then key claude $KW
+    elif [ "$labelled" = 0 ] && [ "$r" -ge "$first_res" ]; then seg "$dim" "resume"; padto $KW; labelled=1
+    else key "" $KW; fi
+    [ "$r" = 0 ] && [ "$first_res" = 0 ] && labelled=0
+    seg "$acc2" "✦"; sp 1
+    if [ "$sg" -gt 0 ]; then
+      s0=$RW
+      if [ "${C_RUN[i]}" = true ]; then cstate "${C_ST[i]}"; seg "$CS_COL" "$CS_SYM $CS_WORD"; fi
+      padto $(( s0 + sw )); sp 2
+    fi
+    fit "${C_TI[i]:-(ohne Titel)}" "$tw"; vw "$FIT"; fw=$VW
+    if [ "${C_RUN[i]}" = true ]; then seg "$acc2" "$FIT"; else seg "$acc2" "$FIT"; fi
+    sp $(( tw - fw + 2 ))
+    fit "${CPATH[i]}" "$cw"; s0=$RW; seg "$dim" "$FIT"; padto $(( s0 + cw )); sp 2
+    printf -v x "%${agw}s" "${C_AGE[i]}"; seg "$dim" "$x"; sp 2
+    seg "$dim" "${CLAST[i]}"
+    emit
+  done
+  # the "resume" label still owed (only one resume row, right after CLAUDE)
+  if [ ${#res[@]} -gt 4 ]; then
+    if [ "$labelled" = 0 ] && [ "$first_res" -lt ${#rows[@]} ]; then seg "$dim" "resume"; padto $KW; labelled=1; else key "" $KW; fi
+    seg "$dim" "+$(( ${#res[@]} - 4 )) weitere (t cl)"; emit
+  elif [ "$labelled" = 0 ] && [ "$first_res" -lt ${#rows[@]} ] && [ "$first_res" = 0 ]; then
+    seg "$dim" "resume"; emit
   fi
-  [ -n "$TAIL" ] && { sp 2; seg "$dim" "$TAIL"; }
+}
+
+# "18 hours ago" / "About an hour ago" / "2 days ago" -> SHORT (18h / 1h / 2d)
+since_short() {
+  local a=$1 num u   # not `n`: that is the colour reset
+  case "$a" in "About an hour"*|"an hour"*) SHORT=1h; return ;; "About a minute"*|"Less than"*) SHORT=1m; return ;; esac
+  read -r num u _ <<<"$a"
+  case "$u" in second*) SHORT=1m ;; minute*) SHORT="${num}m" ;; hour*) SHORT="${num}h" ;; day*) SHORT="${num}d" ;; week*) SHORT="${num}w" ;; month*) SHORT="${num}mo" ;; *) SHORT=$a ;; esac
+}
+human_bytes() {   # bytes -> HB (1.2G / 640M)
+  local b=$1
+  if [ "$b" -ge 1073741824 ]; then printf -v HB '%d.%dG' $(( b / 1073741824 )) $(( b * 10 / 1073741824 % 10 ))
+  else HB="$(( b / 1048576 ))M"; fi
+}
+# KIND: one row per kind cluster on this VM --
+#   ⎈ <name>  <n> nodes (1 cp · 3 worker)  up 18h  :80 :443  api 10.100.136.86:40759
+# yellow "x/y nodes up" when a node is not running. From docker only (labels,
+# state, published ports) -- no kubectl, so a dead API server cannot hang it.
+b_kind() {
+  local W=$1 k=kind i c nodes up cp wk ports api age p hp cport col
+  local -A seen=()
+  for ((i = 0; i < ${#D_CL[@]}; i++)); do
+    c=${D_CL[i]}; [ -n "$c" ] && [ -z "${seen[$c]:-}" ] || continue; seen[$c]=1
+    nodes=0 up=0 cp=0 wk=0 ports="" api="" age=""
+    local j
+    for ((j = 0; j < ${#D_CL[@]}; j++)); do
+      [ "${D_CL[j]}" = "$c" ] || continue
+      nodes=$((nodes + 1)); [ "${D_STATE[j]}" = running ] && up=$((up + 1))
+      case "${D_ROLE[j]}" in control-plane) cp=$((cp + 1))
+        since_short "${D_FOR[j]}"; age=$SHORT
+        # published ports of the control plane: the API (-> 6443) and the rest
+        IFS=',' read -ra pp <<<"${D_PORTS[j]}"
+        for p in "${pp[@]}"; do
+          p=${p# }; [[ $p == *"->"* ]] || continue
+          hp=${p%%->*}; cport=${p#*->}; cport=${cport%%/*}
+          if [ "$cport" = 6443 ]; then
+            [[ $hp == 0.0.0.0:* || $hp == "[::]:"* ]] && { [ -z "$api" ] && api=":${hp##*:}"; } || api=$hp
+          else
+            [[ " $ports " == *" :${hp##*:} "* ]] || ports+="${ports:+ }:${hp##*:}"
+          fi
+        done ;;
+        *) wk=$((wk + 1)) ;;
+      esac
+    done
+    key "$k" $KW; k=""
+    seg "$acc" "⎈"; sp 1; seg "$acc" "$c"; sp 2
+    if [ "$up" -lt "$nodes" ]; then seg "$YL" "$up/$nodes nodes up"; else seg "" "$nodes nodes"; fi
+    seg "$dim" " ($cp cp · $wk worker)"
+    [ -n "$age" ] && { sp 2; seg "$dim" "up $age"; }
+    [ -n "$ports" ] && { sp 2; fit "$ports" $(( W - RW - 2 )); seg "$dim" "$FIT"; }
+    [ -n "$api" ] && [ $(( RW + 6 + ${#api} )) -le "$W" ] && { sp 2; seg "$dim" "api "; seg "" "$api"; }
+    emit
+  done
+}
+# DOCKER: how many containers run, and the three that use the most memory.
+b_docker() {
+  local W=$1 i cnt=0 r line item
+  local -a top=()
+  for ((i = 0; i < ${#D_NAME[@]}; i++)); do [ "${D_STATE[i]}" = running ] && { cnt=$((cnt + 1)); top+=("${D_MEM[i]} $i"); }; done
+  [ "$cnt" -gt 0 ] || return 0
+  mapfile -t top < <(printf '%s\n' "${top[@]}" | sort -rn | head -3)
+  key docker $KW; seg "" "$cnt running"; seg "$dim" " · top RAM:"
+  for r in "${top[@]}"; do
+    i=${r#* }; human_bytes "${r%% *}"
+    item="${D_NAME[i]} $HB"; vw "$item"
+    [ $(( RW + 3 + VW )) -le "$W" ] || break
+    [ "$r" = "${top[0]}" ] && sp 1 || seg "$dim" " · "
+    seg "" "${D_NAME[i]}"; seg "$acc2" " $HB"
+  done
   emit
 }
 
-# TMUX: one row per tmux session, its Claude sessions indented below it.
-# CLAUDE: running ones outside tmux. RESUME: ended in the last 24 h (max 3).
-b_sess() {
-  local W=$1 t i k=tmux kc=claude kr=resume nr=0 att base
-  # which Claude sessions show: under a tmux session, running outside tmux,
-  # ended in the last 24 h (max 3)
-  local -A shown=() tset=(); for t in "${T_N[@]}"; do tset[$t]=1; done
-  for ((i = 0; i < ${#C_ST[@]}; i++)); do
-    case "${C_WH[i]}" in tmux:*) [ -n "${tset[${C_WH[i]#tmux:}]:-}" ] && shown[$i]=1; continue ;; esac
-    if [ "${C_ST[i]}" != "-" ]; then shown[$i]=1
-    elif [ "${C_AGE[i]: -1}" != d ] && [ "$nr" -lt 3 ]; then shown[$i]=1; nr=$((nr + 1)); fi
-  done
-  nr=0
-  # their columns: title as wide as the widest shown one (max 60), the age
-  # right behind it, "agent", then the directory (dropped when the title
-  # would get less than 20)
-  local tmax=12 rmax=0 tlmax=0
-  for i in "${!shown[@]}"; do
-    vw "${C_TI[i]}"; [ "$VW" -gt "$tmax" ] && tmax=$VW
-    ctail "$i"; vw "$TAIL"; [ "$VW" -gt "$tlmax" ] && tlmax=$VW
-    case "${C_WH[i]}" in tmux:*) continue ;; esac
-    crest "$i"; vw "$REST"; [ "$VW" -gt "$rmax" ] && rmax=$VW
-  done
-  [ "$tmax" -gt 60 ] && tmax=60
-  # the title takes what it needs, at least 60 % of the free width; the
-  # folder the rest; only what does not fit is shortened, a folder under 8
-  # columns is dropped
-  # Who gets the width: the title (at least 60 % of what is free), then the
-  # folder (dropped below 12 columns), then where/type (dropped when fewer
-  # than 24 columns would be left for title and folder). Nothing is cut that
-  # fits.
-  local base=$(( W - KW - 2 - 11 - 6 )) avail
-  TLON=1; avail=$(( base - (tlmax > 0 ? tlmax + 2 : 0) ))
-  [ "$avail" -lt 24 ] && { TLON=0; avail=$base; }
-  TW=$tmax; RCOL=0
-  if [ "$rmax" -gt 0 ]; then
-    [ $(( avail - rmax - 2 )) -lt "$TW" ] && TW=$(( avail - rmax - 2 ))
-    [ "$TW" -lt $(( avail * 6 / 10 )) ] && TW=$(( avail * 6 / 10 ))
-    [ "$TW" -gt "$tmax" ] && TW=$tmax
-    RCOL=$(( avail - TW - 2 )); [ "$RCOL" -gt "$rmax" ] && RCOL=$rmax
-    [ "$RCOL" -lt 12 ] && [ "$RCOL" -lt "$rmax" ] && RCOL=0
-  fi
-  [ "$TW" -gt $(( avail - (RCOL > 0 ? RCOL + 2 : 0) )) ] && TW=$(( avail - (RCOL > 0 ? RCOL + 2 : 0) ))
-  for t in "${T_N[@]}"; do
-    key "$k" $KW; k=""
-    seg "$acc2" "$t"; seg "$dim" " · ${T_W[$t]} win"
-    [ "${T_A[$t]}" != 0 ] && { seg "$dim" " · "; seg "$G" "attached"; }
-    base=${T_P[$t]##*/}; [ "${T_P[$t]}" = "$HOME" ] && base="~"
-    [[ "$t" == *"$base"* ]] || { vw "$base"; [ $(( RW + 3 + VW )) -le "$W" ] && seg "$dim" " · $base"; }
-    emit
-    for ((i = 0; i < ${#C_ST[@]}; i++)); do
-      [ "${C_WH[i]}" = "tmux:$t" ] && crow "" "$i" 2
-    done
-  done
-  # outside tmux: the ones waiting for you (an approval) first
-  for pass in waiting other; do
-    for ((i = 0; i < ${#C_ST[@]}; i++)); do
-      case "${C_ST[i]}" in -) continue ;; esac
-      case "${C_WH[i]}" in tmux:*) continue ;; esac
-      if [ "$pass" = waiting ]; then [ "${C_ST[i]}" = waiting ] || continue
-      else [ "${C_ST[i]}" = waiting ] && continue; fi
-      crow "$kc" "$i" 0; kc=""
-    done
-  done
-  for ((i = 0; i < ${#C_ST[@]} && nr < 3; i++)); do
-    [ "${C_ST[i]}" = "-" ] || continue
-    [ "${C_AGE[i]: -1}" = d ] && continue
-    nr=$((nr + 1))
-    crow "$kr" "$i" 0; kr=""
-  done
-}
-
-b_hint() {
-  local W=$1 parts i
+# TASKS: the global Taskfile's handiest aliases, wrapped between items like the
+# software rows (only where ~/Taskfile.yml exists).
+TASK_ITEMS=("tasks|pick any task" "t ta|attach tmux" "t tp|tmux per project" "t tc|new tmux session"
+            "t cr|resume Claude" "t cl|list Claude" "t crm|delete Claude sessions" "t kc|kubeconfig"
+            "t chezmoi:update|dotfiles" "t secrets:list|secrets")
+b_tasks() {
+  local W=$1 k=tasks it c d ilen
   [ -f "$HOME/Taskfile.yml" ] || return 0
-  key hint $KW
-  parts=("tasks|pick a task" "t cr|resume Claude" "t cl|list sessions" "t ta|attach tmux")
-  for ((i = 0; i < ${#parts[@]}; i++)); do
-    local c=${parts[i]%%|*} d=${parts[i]#*|}
-    vw "$c $d"; [ $(( RW + 3 + VW )) -le "$W" ] || break
-    [ "$i" -gt 0 ] && seg "$dim" " · "
+  for it in "${TASK_ITEMS[@]}"; do
+    c=${it%%|*} d=${it#*|}
+    vw "$c $d"; ilen=$VW
+    if [ "$RW" -gt $KW ] && [ $(( RW + 3 + ilen )) -gt "$W" ]; then emit; fi
+    if [ "$RW" -eq 0 ]; then key "$k" $KW; k=""; else seg "$dim" " · "; fi
     seg "$acc2" "$c"; seg "$dim" " $d"
   done
-  emit
+  [ "$RW" -gt 0 ] && emit
+  return 0
 }
 
 # build W BLOCK... -> ROWS/ROWW plus per block BS (start) BL (rows) BB (blank
@@ -594,7 +694,9 @@ build() {
     case "$b" in cat:*) b_cat "${b#cat:}" "$W" ;; *) "b_$b" "$W" ;; esac
     [ ${#ROWS[@]} -gt "$s" ] || continue
     BS+=("$s"); BL+=($(( ${#ROWS[@]} - s ))); BNAME+=("$b")
-    if [[ "$b" == cat:* && "$prev" == cat:* ]]; then BB+=(0); else BB+=(1); fi
+    # no blank line between two software categories, nor inside the
+    # workplace group TMUX / KIND / DOCKER
+    if [[ "$b" == cat:* && "$prev" == cat:* ]] || [[ " tmux kind docker " == *" $b "* && " tmux kind docker " == *" $prev "* ]]; then BB+=(0); else BB+=(1); fi
     prev=$b
   done
 }
@@ -618,33 +720,10 @@ gradient_rows() {   # print LINES (array name) with the art gradient, padded to 
   for ((r = 0; r < rows; r++)); do line=""; [ -n "${_l[r]}" ] && grad line "${_l[r]}" "$r" "$rows"; GR[r]=$line; done
 }
 
-# bottom W: CHECK | sessions side by side (W >= 139, i.e. TOTAL >= 140), the
-# CHECK column as wide as its widest row (max 60); else one below the other.
-# The hint full width below.
-bottom() {
-  local W=$1 cw r
-  build "$W" check
-  if [ ${#BS[@]} -gt 0 ] && [ $(( W + 1 )) -ge 140 ]; then
-    cw=0; for r in "${ROWW[@]}"; do [ "$r" -gt "$cw" ] && cw=$r; done
-    [ "$cw" -gt 60 ] && cw=60
-    build "$cw" check; column 0 ${#BS[@]}; local LC=("${COL[@]}") LCW=("${COLW[@]}")
-    build $(( W - cw - 3 )) sess; column 0 ${#BS[@]}; local RC=("${COL[@]}")
-    local total=$(( ${#LC[@]} > ${#RC[@]} ? ${#LC[@]} : ${#RC[@]} ))
-    for ((r = 0; r < total; r++)); do
-      if [ $r -lt ${#RC[@]} ]; then printf ' %s%*s   %s\n' "${LC[r]:-}" $(( cw - ${LCW[r]:-0} )) "" "${RC[r]}"
-      else printf ' %s\n' "${LC[r]:-}"; fi
-    done
-    build "$W" hint
-  else
-    build "$W" check sess hint
-  fi
-  [ ${#BS[@]} -gt 0 ] && { [ "${BNAME[0]}" = hint ] && echo; column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done; }
-}
-
 # ---------------------------------------------------------------- layout
 # >= 140: the mascot next to what the machine is and has (facts, SYSTEM,
 #         STATUS, the software); below the rule, full width, what to act on:
-#         CHECK, the sessions, the hint.
+#         CHECK, TMUX, CLAUDE, TASKS.
 # 110-139: the wordmark, then two columns of equal width, split where both
 #         end level. < 110: the wordmark (if it fits), one column.
 if [ "$TOTAL" -ge 140 ]; then
@@ -664,16 +743,16 @@ if [ "$TOTAL" -ge 140 ]; then
       printf ' %s%s\n' "${GR[r]:-}" "$n"
     fi
   done
-  # below the rule (exactly TOTAL wide, flush with the top): CHECK and the
-  # sessions side by side from 140 columns, else one below the other; the
-  # hint full width under both
+  # below the rule (exactly TOTAL wide, flush with the top), full width:
+  # CHECK on one line, TMUX, CLAUDE, TASKS
   BWID=$(( TOTAL - 1 ))
   printf -v RULE '%*s' "$BWID" ''; printf ' %s%s%s\n' "$dim" "${RULE// /─}" "$n"
-  bottom "$BWID"
+  build "$BWID" check tmux kind docker claude tasks
+  column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done
 elif [ "$TOTAL" -ge 110 ]; then
   GR=(); gradient_rows WORDMARK; for l in "${GR[@]}"; do printf ' %s%s\n' "$l" "$n"; done; echo
   CW_=$(( (TOTAL - 1 - 3) / 2 ))
-  build "$CW_" "${MACHB[@]}" "${CATB[@]}" check sess hint
+  build "$CW_" "${MACHB[@]}" "${CATB[@]}"
   nb=${#BS[@]}; best=1; bd=99999
   for ((k = 1; k < nb; k++)); do
     height 0 "$k"; hl=$H; height "$k" "$nb"; d=$(( hl > H ? hl - H : H - hl ))
@@ -689,9 +768,12 @@ elif [ "$TOTAL" -ge 110 ]; then
       printf ' %s\n' "${LC[r]:-}"
     fi
   done
+  # below both columns, full width: CHECK, TMUX, CLAUDE, TASKS
+  echo; build $(( TOTAL - 1 )) check tmux kind docker claude tasks
+  column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done
 else
   if [ "$TOTAL" -ge 62 ]; then GR=(); gradient_rows WORDMARK; for l in "${GR[@]}"; do printf ' %s%s\n' "$l" "$n"; done; echo; fi
-  build $(( TOTAL - 1 )) "${MACHB[@]}" "${CATB[@]}" check sess hint
+  build $(( TOTAL - 1 )) "${MACHB[@]}" "${CATB[@]}" check tmux kind docker claude tasks
   column 0 ${#BS[@]}; for l in "${COL[@]}"; do printf ' %s\n' "$l"; done
 fi
 echo
