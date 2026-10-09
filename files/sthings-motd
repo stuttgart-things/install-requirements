@@ -669,7 +669,7 @@ b_docker() {
 # software rows (only where ~/Taskfile.yml exists).
 TASK_ITEMS=("tasks|pick any task" "t ta|attach tmux" "t tp|tmux per project" "t tc|new tmux session"
             "t cr|resume Claude" "t cl|list Claude" "t crm|delete Claude sessions" "t kc|kubeconfig"
-            "t chezmoi:update|dotfiles" "t secrets:list|secrets")
+            "t gcl|clone repos" "t chezmoi:update|dotfiles" "t secrets:list|secrets")
 b_tasks() {
   local W=$1 k=tasks it c d ilen
   [ -f "$HOME/Taskfile.yml" ] || return 0
