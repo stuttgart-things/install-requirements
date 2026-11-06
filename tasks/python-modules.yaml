@@ -1,15 +1,15 @@
 ---
 - name: Detect Python version
-  command: "{{ python_bin }} -c 'import sys; print(\"{}.{}\".format(sys.version_info[0], sys.version_info[1]))'"
+  ansible.builtin.command: "{{ python_bin }} -c 'import sys; print(\"{}.{}\".format(sys.version_info[0], sys.version_info[1]))'"
   register: python_version_output
   changed_when: false
 
 - name: Set Python version fact
-  set_fact:
+  ansible.builtin.set_fact:
     python_version: "{{ python_version_output.stdout }}"
 
 - name: Ensure Python venv and dev packages are installed (Debian/Ubuntu)
-  package:
+  ansible.builtin.package:
     name:
       - "python{{ python_version }}-venv"
       - "python{{ python_version }}-dev"
@@ -17,7 +17,7 @@
   when: ansible_facts['os_family'] == 'Debian'
 
 - name: Ensure Python venv and dev packages are installed (RedHat/Fedora)
-  package:
+  ansible.builtin.package:
     name:
       - python3-devel
       - python3-pip
@@ -25,33 +25,33 @@
   when: ansible_facts['os_family'] == 'RedHat'
 
 - name: Create virtual environment
-  command: "{{ python_bin }} -m venv {{ venv_path }}"
+  ansible.builtin.command: "{{ python_bin }} -m venv {{ venv_path }}"
   args:
     creates: "{{ venv_path }}"
   become: true
 
 - name: Ensure pip is available in the virtual environment
-  command: "{{ venv_path }}/bin/python -m ensurepip --upgrade"
+  ansible.builtin.command: "{{ venv_path }}/bin/python -m ensurepip --upgrade"
   args:
     creates: "{{ venv_path }}/bin/pip"
   become: true
 
 - name: Upgrade pip and setuptools to avoid Python 3.12+ issues
-  command: "{{ venv_path }}/bin/pip install --upgrade pip setuptools packaging"
+  ansible.builtin.command: "{{ venv_path }}/bin/pip install --upgrade pip setuptools packaging"
   become: true
   changed_when: false
 
 - name: Check pip version
-  command: "{{ venv_path }}/bin/pip --version"
+  ansible.builtin.command: "{{ venv_path }}/bin/pip --version"
   register: pip_version
   changed_when: false
 
 - name: Show pip version
-  debug:
+  ansible.builtin.debug:
     var: pip_version.stdout
 
 - name: Install required Python modules in venv
-  pip:
+  ansible.builtin.pip:
     name: "{{ item.name }}"
     version: "{{ item.version | default(omit) }}"
     executable: "{{ venv_path }}/bin/pip"
@@ -60,5 +60,5 @@
   become: true
 
 - name: Set interpreter for later tasks
-  set_fact:
+  ansible.builtin.set_fact:
     ansible_python_interpreter: "{{ venv_path }}/bin/python"

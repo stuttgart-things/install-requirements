@@ -31,7 +31,12 @@ jobs:
     with:
       runs-on: ghr-install-requirements-in-cluster
       environment-name: k8s
-      continue-error: true
+      continue-error: false
       ansible-image: ghcr.io/stuttgart-things/sthings-ansible:13.5.0-test
-      playbook: tests/test.yml
+      # The repo root, not tests/test.yml: the test play names the role by its
+      # directory name, which ansible-lint cannot resolve from tests/
+      # (syntax-check[specific], so the role itself was never linted).
+      playbook: .
+      # Lint is clean: findings fail the job (github-workflow-templates#228).
+      fail-on-findings: true
     needs: yaml-lint
