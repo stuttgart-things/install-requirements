@@ -21,6 +21,11 @@
     name:
       - python3-devel
       - python3-pip
+      # ansible.builtin.pip imports `packaging` in the interpreter that runs the
+      # module (the system python3), not in the venv. Ubuntu ships it with the
+      # cloud image; Rocky/RHEL 10 does not -> "Failed to import the required
+      # Python library (packaging)" (stuttgart-things/stuttgart-things#4489).
+      - python3-packaging
     state: present
   when: ansible_facts['os_family'] == 'RedHat'
 
